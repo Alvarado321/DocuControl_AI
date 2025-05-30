@@ -76,26 +76,24 @@ WSGI_APPLICATION = 'docucontrol_ai.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# MySQL/MariaDB configuration para XAMPP
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'docucontrol_ai',
         'USER': 'root',
-        'PASSWORD': '',  # Cambia por tu password de MySQL
-        'HOST': 'localhost',
+        'PASSWORD': '',  # Sin password por defecto en XAMPP
+        'HOST': '127.0.0.1',
         'PORT': '3306',
-    }
-}
-
-# Fallback to SQLite for development
-import os
-if os.environ.get('USE_SQLITE'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'autocommit': True,
+        },
+        'TEST': {
+            'CHARSET': 'utf8mb4',
+            'COLLATION': 'utf8mb4_unicode_ci',
         }
-    }
     }
 }
 

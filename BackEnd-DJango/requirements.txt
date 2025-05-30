@@ -10,3 +10,4 @@ numpy>=1.26.0
 celery>=5.4.0
 redis>=5.1.0
 django-extensions>=3.2.0
+mysqlclient==2.2.7
