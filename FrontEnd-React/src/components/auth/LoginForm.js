@@ -51,7 +51,6 @@ const LoginForm = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -59,7 +58,7 @@ const LoginForm = () => {
 
     setIsLoading(true);
     try {
-      await login(formData);
+      await login(formData.email, formData.password);
       showNotification('Inicio de sesión exitoso', 'success');
       navigate('/dashboard');
     } catch (error) {

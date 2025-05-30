@@ -54,7 +54,7 @@ def health_check():
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    """Registro de nuevos usuarios"""
+    """Registro de nuevos usuarios"""    
     try:
         data = request.get_json()
         
@@ -97,7 +97,7 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    """Autenticación de usuarios"""
+    """Autenticación de usuarios"""    
     try:
         data = request.get_json()
         
