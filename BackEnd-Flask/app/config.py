@@ -19,10 +19,11 @@ class Config:
     # URI de conexión a la base de datos
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Configuración de JWT
+      # Configuración de JWT
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key-change-in-production'
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hora
+    JWT_ALGORITHM = 'HS256'
+    JWT_IDENTITY_CLAIM = 'sub'
     
     # Configuración de archivos
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')

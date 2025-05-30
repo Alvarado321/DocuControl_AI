@@ -115,9 +115,8 @@ def login():
         # Actualizar última actividad
         usuario.ultima_actividad = datetime.utcnow()
         db.session.commit()
-        
-        # Crear token de acceso
-        access_token = create_access_token(identity=usuario.id)
+          # Crear token de acceso
+        access_token = create_access_token(identity=str(usuario.id))
         
         return jsonify({
             'access_token': access_token,
@@ -132,7 +131,7 @@ def login():
 def get_profile():
     """Obtener perfil del usuario autenticado"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         usuario = Usuario.query.get(user_id)
         
         if not usuario:
@@ -188,9 +187,9 @@ def get_tramites_por_categoria(categoria):
 @solicitudes_bp.route('/', methods=['POST'])
 @jwt_required()
 def crear_solicitud():
-    """Crear nueva solicitud de trámite"""
+    """Crear nueva solicitud de trámite"""    
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         data = request.get_json()
         
         if 'tramite_id' not in data:
@@ -251,7 +250,7 @@ def crear_solicitud():
 def get_mis_solicitudes():
     """Obtener solicitudes del usuario autenticado"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         solicitudes = Solicitud.query.filter_by(usuario_id=user_id).all()
         
         resultado = []
@@ -270,7 +269,7 @@ def get_mis_solicitudes():
 def get_solicitud(solicitud_id):
     """Obtener detalles de una solicitud específica"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         usuario = Usuario.query.get(user_id)
         
         solicitud = Solicitud.query.get(solicitud_id)
@@ -301,7 +300,7 @@ def get_solicitud(solicitud_id):
 def subir_documento(solicitud_id):
     """Subir documento para una solicitud"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         
         solicitud = Solicitud.query.get(solicitud_id)
         if not solicitud:
@@ -367,7 +366,7 @@ def subir_documento(solicitud_id):
 def procesar_solicitudes_ml():
     """Procesar solicitudes pendientes con Machine Learning"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         usuario = Usuario.query.get(user_id)
         
         # Solo usuarios administrativos pueden ejecutar ML

@@ -1,0 +1,543 @@
+{
+	"info": {
+		"_postman_id": "docucontrol-ai-api-tests",
+		"name": "DocuControl AI - API Tests",
+		"description": "Colección completa para probar todas las rutas de la API DocuControl AI",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "🏠 Rutas Principales",
+			"item": [
+				{
+					"name": "Index - Información de la API",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check - Estado del sistema",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔐 Autenticación",
+			"item": [
+				{
+					"name": "Registrar Usuario",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('user_id', response.usuario.id);",
+									"    pm.environment.set('user_email', response.usuario.email);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"dni\": \"{{$randomInt}}\",\n    \"nombres\": \"{{$randomFirstName}}\",\n    \"apellidos\": \"{{$randomLastName}}\",\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"password123\",\n    \"telefono\": \"{{$randomPhoneNumber}}\",\n    \"direccion\": \"{{$randomStreetAddress}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login - Obtener Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('access_token', response.access_token);",
+									"    pm.environment.set('user_id', response.usuario.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"maria.garcia@test.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Perfil de Usuario",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "profile"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📋 Trámites",
+			"item": [
+				{
+					"name": "Listar Todos los Trámites",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Trámite por ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "1"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trámites por Categoría - Licencias",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/categoria/licencias",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "categoria", "licencias"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trámites por Categoría - Permisos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/categoria/permisos",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "categoria", "permisos"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trámites por Categoría - Certificados",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/categoria/certificados",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "categoria", "certificados"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trámites por Categoría - Servicios",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/categoria/servicios",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "categoria", "servicios"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📝 Solicitudes",
+			"item": [
+				{
+					"name": "Crear Nueva Solicitud",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set('solicitud_id', response.solicitud.id);",
+									"    pm.environment.set('numero_expediente', response.solicitud.numero_expediente);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tramite_id\": 1,\n    \"observaciones\": \"Solicitud de prueba para licencia comercial\",\n    \"datos_adicionales\": {\n        \"tipo_negocio\": \"Restaurante\",\n        \"area_metros\": 50,\n        \"empleados\": 5\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/solicitudes/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "solicitudes", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mis Solicitudes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/solicitudes/mis-solicitudes",
+							"host": ["{{base_url}}"],
+							"path": ["api", "solicitudes", "mis-solicitudes"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Solicitud por ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/solicitudes/{{solicitud_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "solicitudes", "{{solicitud_id}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📎 Documentos",
+			"item": [
+				{
+					"name": "Subir Documento",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "archivo",
+									"type": "file",
+									"src": []
+								},
+								{
+									"key": "tipo_documento",
+									"value": "DNI",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/documentos/subir/{{solicitud_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "documentos", "subir", "{{solicitud_id}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🤖 Machine Learning",
+			"item": [
+				{
+					"name": "Procesar Solicitudes con ML",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/ml/procesar-solicitudes",
+							"host": ["{{base_url}}"],
+							"path": ["api", "ml", "procesar-solicitudes"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Estadísticas ML",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/ml/estadisticas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "ml", "estadisticas"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🧪 Casos de Prueba Específicos",
+			"item": [
+				{
+					"name": "Login con Credenciales Incorrectas",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"noexiste@test.com\",\n    \"password\": \"passwordincorrecto\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Registro con DNI Duplicado",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"dni\": \"12345678\",\n    \"nombres\": \"Usuario\",\n    \"apellidos\": \"Duplicado\",\n    \"email\": \"duplicado@test.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Trámite No Existente",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/tramites/999",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tramites", "999"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Acceso Sin Token JWT",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "profile"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Crear Solicitud con Trámite Inexistente",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tramite_id\": 999,\n    \"observaciones\": \"Trámite que no existe\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/solicitudes/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "solicitudes", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "solicitud_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "numero_expediente",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_email",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
