@@ -6,14 +6,14 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Card from '../common/Card';
 
-const RegisterForm = () => {
-  const [formData, setFormData] = useState({
-    nombre: '',
+const RegisterForm = () => {  const [formData, setFormData] = useState({
+    nombres: '',
+    apellidos: '',
     email: '',
     password: '',
     confirmPassword: '',
     telefono: '',
-    cedula: ''
+    dni: ''
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -36,14 +36,19 @@ const RegisterForm = () => {
       }));
     }
   };
-
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.nombre.trim()) {
-      newErrors.nombre = 'El nombre es requerido';
-    } else if (formData.nombre.trim().length < 2) {
-      newErrors.nombre = 'El nombre debe tener al menos 2 caracteres';
+    if (!formData.nombres.trim()) {
+      newErrors.nombres = 'El nombre es requerido';
+    } else if (formData.nombres.trim().length < 2) {
+      newErrors.nombres = 'El nombre debe tener al menos 2 caracteres';
+    }
+
+    if (!formData.apellidos.trim()) {
+      newErrors.apellidos = 'Los apellidos son requeridos';
+    } else if (formData.apellidos.trim().length < 2) {
+      newErrors.apellidos = 'Los apellidos deben tener al menos 2 caracteres';
     }
 
     if (!formData.email) {
@@ -64,10 +69,10 @@ const RegisterForm = () => {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
-    if (!formData.cedula) {
-      newErrors.cedula = 'La cédula es requerida';
-    } else if (!/^\d{8,10}$/.test(formData.cedula)) {
-      newErrors.cedula = 'La cédula debe tener entre 8 y 10 dígitos';
+    if (!formData.dni) {
+      newErrors.dni = 'La cédula es requerida';
+    } else if (!/^\d{8,10}$/.test(formData.dni)) {
+      newErrors.dni = 'La cédula debe tener entre 8 y 10 dígitos';
     }
 
     if (formData.telefono && !/^\d{10}$/.test(formData.telefono)) {
@@ -115,16 +120,29 @@ const RegisterForm = () => {
 
         {/* Register Form */}
         <Card className="mt-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">            
             <div>
               <Input
-                label="Nombre Completo"
+                label="Nombres"
                 type="text"
-                name="nombre"
-                value={formData.nombre}
+                name="nombres"
+                value={formData.nombres}
                 onChange={handleChange}
-                error={errors.nombre}
-                placeholder="Juan Pérez"
+                error={errors.nombres}
+                placeholder="Juan Carlos"
+                required
+              />
+            </div>
+
+            <div>
+              <Input
+                label="Apellidos"
+                type="text"
+                name="apellidos"
+                value={formData.apellidos}
+                onChange={handleChange}
+                error={errors.apellidos}
+                placeholder="García López"
                 required
               />
             </div>
@@ -133,10 +151,10 @@ const RegisterForm = () => {
               <Input
                 label="Cédula"
                 type="text"
-                name="cedula"
-                value={formData.cedula}
+                name="dni"
+                value={formData.dni}
                 onChange={handleChange}
-                error={errors.cedula}
+                error={errors.dni}
                 placeholder="12345678"
                 required
               />
