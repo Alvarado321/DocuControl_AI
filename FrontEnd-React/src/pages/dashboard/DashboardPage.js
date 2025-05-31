@@ -97,7 +97,7 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white mt-[60px]">
         <h1 className="text-2xl font-bold">
           ¡Bienvenido, {user?.nombre}! 👋
         </h1>

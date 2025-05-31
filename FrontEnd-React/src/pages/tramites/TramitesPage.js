@@ -134,7 +134,7 @@ const TramitesPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white mt-[60px]">
         <h1 className="text-3xl font-bold">Catálogo de Trámites</h1>
         <p className="mt-2 text-primary-100">
           Encuentra y solicita los trámites municipales que necesitas
