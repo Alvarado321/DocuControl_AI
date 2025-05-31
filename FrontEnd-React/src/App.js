@@ -17,6 +17,11 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 
+// Trámites Pages
+import TramitesPage from './pages/tramites/TramitesPage';
+import TramiteDetailPage from './pages/tramites/TramiteDetailPage';
+import SolicitarTramitePage from './pages/tramites/SolicitarTramitePage';
+
 // Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,19 +56,33 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
-                    
-                    {/* Placeholder routes - to be implemented */}
+                      {/* Trámites routes */}
                     <Route 
                       path="tramites" 
                       element={
                         <ProtectedRoute>
-                          <div className="p-6">
-                            <h1 className="text-2xl font-bold">Trámites</h1>
-                            <p>Página en desarrollo...</p>
-                          </div>
+                          <TramitesPage />
                         </ProtectedRoute>
                       } 
                     />
+                    <Route 
+                      path="tramites/:id" 
+                      element={
+                        <ProtectedRoute>
+                          <TramiteDetailPage />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="tramites/:id/solicitar" 
+                      element={
+                        <ProtectedRoute>
+                          <SolicitarTramitePage />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    
+                    {/* Other placeholder routes */}
                     <Route 
                       path="solicitudes" 
                       element={
