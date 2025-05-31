@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
-  DocumentTextIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   InformationCircleIcon,
@@ -26,17 +25,22 @@ const SolicitarTramitePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
+  const { user } = useAuth();  const [formData, setFormData] = useState({
+    // Datos personales
+    nombre_completo: user?.nombre_completo || '',
+    documento: user?.documento || '',
+    telefono: user?.telefono || '',
+    email: user?.email || '',
+    direccion: user?.direccion || '',
+    // Datos del trámite
     observaciones: '',
     datos_adicionales: {}
-  });
-  const [errors, setErrors] = useState({});
+  });  const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4; // Agregamos un paso más
   const [costoCalculado, setCostoCalculado] = useState(null);
   const [tiempoEstimado, setTiempoEstimado] = useState(null);
-  const [requirementsCompleted, setRequirementsCompleted] = useState(false);
+  const [requirementsCompleted, setRequirementsCompleted] = useState(false); // Inicialmente false para requerir validación
 
   // Obtener detalles del trámite
   const {
@@ -78,29 +82,60 @@ const SolicitarTramitePage = () => {
       currency: 'COP',
       minimumFractionDigits: 0
     }).format(amount);
-  };
-  const validateForm = () => {
+  };  const validateForm = () => {
     const newErrors = {};
 
-    if (currentStep === 2) {
-      // Validar datos adicionales si es necesario
-      if (tramite?.categoria === 'licencias' && !formData.datos_adicionales.direccion_obra) {
-        newErrors.direccion_obra = 'La dirección de la obra es requerida';
+    if (currentStep === 1) {
+      // Validar información personal
+      if (!formData.nombre_completo.trim()) {
+        newErrors.nombre_completo = 'El nombre completo es requerido';
+      }
+      if (!formData.documento.trim()) {
+        newErrors.documento = 'El número de documento es requerido';
+      }
+      if (!formData.telefono.trim()) {
+        newErrors.telefono = 'El teléfono es requerido';
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'El email es requerido';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        newErrors.email = 'El email no tiene un formato válido';
+      }      if (!formData.direccion.trim()) {
+        newErrors.direccion = 'La dirección es requerida';
       }
     }
 
-    if (currentStep === 3) {
-      // Validar que los requisitos estén completos
+    if (currentStep === 2) {
+      
+      // Validar datos adicionales según la categoría
+      if (tramite?.categoria === 'licencias') {
+        if (!formData.datos_adicionales.direccion_obra) {
+          newErrors.direccion_obra = 'La dirección de la obra es requerida';
+        }
+        if (!formData.datos_adicionales.area_construccion || formData.datos_adicionales.area_construccion <= 0) {
+          newErrors.area_construccion = 'El área de construcción es requerida y debe ser mayor a 0';
+        }
+      }
+      if (tramite?.categoria === 'certificados') {
+        if (!formData.datos_adicionales.cantidad || formData.datos_adicionales.cantidad <= 0) {
+          newErrors.cantidad = 'La cantidad de certificados es requerida y debe ser mayor a 0';
+        }
+      }
+      if (tramite?.categoria === 'permisos') {
+        if (!formData.datos_adicionales.duracion_meses || formData.datos_adicionales.duracion_meses <= 0) {
+          newErrors.duracion_meses = 'La duración en meses es requerida y debe ser mayor a 0';
+        }      }
+    }    if (currentStep === 3) {
+      // Validar que los requisitos obligatorios estén completos
       if (!requirementsCompleted) {
-        newErrors.requirements = 'Debes completar todos los requisitos y documentos';
+        newErrors.requirements = 'Debes completar todos los requisitos y documentos obligatorios antes de continuar';
       }
     }
 
     if (currentStep === 4) {
       if (!formData.observaciones.trim()) {
-        newErrors.observaciones = 'Las observaciones son requeridas';
-      }
-    }
+        newErrors.observaciones = 'Las observaciones son requeridas para finalizar la solicitud';
+      }    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -136,29 +171,89 @@ const SolicitarTramitePage = () => {
         [field]: undefined
       }));
     }
-  };
-
-  const handleNext = () => {
-    if (validateForm()) {
+  };  const handleNext = () => {
+    const isValid = validateForm();
+    
+    if (isValid) {
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+    } else {
+      showNotification('Por favor completa todos los campos requeridos', 'error');
     }
   };
 
   const handlePrev = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleSubmit = async (e) => {
+  };  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Validación paso por paso más estricta
+    
+    // Validar paso 1: Datos personales
+    if (!formData.nombre_completo?.trim() || !formData.documento?.trim() || 
+        !formData.telefono?.trim() || !formData.email?.trim() || !formData.direccion?.trim()) {
+      showNotification('Faltan datos personales obligatorios', 'error');
+      setCurrentStep(1);
       return;
     }
+    
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      showNotification('El email no tiene un formato válido', 'error');
+      setCurrentStep(1);
+      return;
+    }
+    
+    // Validar paso 2: Datos adicionales según categoría
+    if (tramite?.categoria === 'licencias') {
+      if (!formData.datos_adicionales?.direccion_obra || 
+          !formData.datos_adicionales?.area_construccion || 
+          formData.datos_adicionales.area_construccion <= 0) {
+        showNotification('Faltan datos requeridos para licencias: dirección de obra y área de construcción', 'error');
+        setCurrentStep(2);
+        return;
+      }
+    }
+    
+    if (tramite?.categoria === 'certificados') {
+      if (!formData.datos_adicionales?.cantidad || formData.datos_adicionales.cantidad <= 0) {
+        showNotification('Debes especificar la cantidad de certificados requeridos', 'error');
+        setCurrentStep(2);
+        return;
+      }
+    }
+    
+    if (tramite?.categoria === 'permisos') {
+      if (!formData.datos_adicionales?.duracion_meses || formData.datos_adicionales.duracion_meses <= 0) {
+        showNotification('Debes especificar la duración en meses para el permiso', 'error');
+        setCurrentStep(2);
+        return;
+      }
+    }
+    
+    // Validar paso 3: Requisitos y documentos
+    if (!requirementsCompleted) {
+      showNotification('Debes completar todos los requisitos y documentos obligatorios antes de enviar la solicitud', 'error');
+      setCurrentStep(3);
+      return;
+    }
+    
+    // Validar paso 4: Observaciones
+    if (!formData.observaciones?.trim()) {
+      showNotification('Las observaciones son requeridas para finalizar la solicitud', 'error');
+      setCurrentStep(4);
+      return;    }
 
     const solicitudData = {
       tramite_id: parseInt(id),
       observaciones: formData.observaciones,
-      datos_adicionales: formData.datos_adicionales
+      datos_adicionales: formData.datos_adicionales,
+      // Agregar datos personales
+      solicitante: {
+        nombre_completo: formData.nombre_completo,
+        documento: formData.documento,
+        telefono: formData.telefono,
+        email: formData.email,
+        direccion: formData.direccion
+      }
     };
 
     crearSolicitudMutation.mutate(solicitudData);
@@ -196,16 +291,113 @@ const SolicitarTramitePage = () => {
   }
 
   const renderStep = () => {
-    switch (currentStep) {
-      case 1:
+    switch (currentStep) {      case 1:
         return (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Información del Trámite
+                Información Personal
               </h3>
               
-              <div className="bg-blue-50 rounded-lg p-6 mb-6">
+              {/* Formulario de datos personales */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre completo *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nombre_completo || ''}
+                      onChange={(e) => handleInputChange('nombre_completo', e.target.value)}
+                      className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                        errors.nombre_completo ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Tu nombre completo"
+                    />
+                    {errors.nombre_completo && (
+                      <p className="mt-1 text-sm text-red-600">{errors.nombre_completo}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Número de documento *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.documento || ''}
+                      onChange={(e) => handleInputChange('documento', e.target.value)}
+                      className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                        errors.documento ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Cédula, pasaporte, etc."
+                    />
+                    {errors.documento && (
+                      <p className="mt-1 text-sm text-red-600">{errors.documento}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Teléfono *
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.telefono || ''}
+                      onChange={(e) => handleInputChange('telefono', e.target.value)}
+                      className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                        errors.telefono ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Tu número de teléfono"
+                    />
+                    {errors.telefono && (
+                      <p className="mt-1 text-sm text-red-600">{errors.telefono}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email || ''}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                        errors.email ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="tu@email.com"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dirección *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.direccion || ''}
+                    onChange={(e) => handleInputChange('direccion', e.target.value)}
+                    className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                      errors.direccion ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="Tu dirección completa"
+                  />
+                  {errors.direccion && (
+                    <p className="mt-1 text-sm text-red-600">{errors.direccion}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Información del trámite */}
+              <div className="bg-blue-50 rounded-lg p-6 mt-6">
                 <div className="flex items-start">
                   <InformationCircleIcon className="h-6 w-6 text-blue-600 mr-3 mt-1" />
                   <div>
@@ -231,48 +423,6 @@ const SolicitarTramitePage = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Requisitos */}
-              {tramite.requisitos && tramite.requisitos.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-3">
-                    Requisitos que debes cumplir:
-                  </h4>
-                  <ul className="space-y-2">
-                    {tramite.requisitos.map((requisito, index) => (
-                      <li key={index} className="flex items-start">
-                        <CheckCircleIcon className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-700">{requisito}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Documentos requeridos */}
-              {tramite.documentos_requeridos && tramite.documentos_requeridos.length > 0 && (
-                <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3">
-                    Documentos que necesitarás subir:
-                  </h4>
-                  <ul className="space-y-2">
-                    {tramite.documentos_requeridos.map((documento, index) => (
-                      <li key={index} className="flex items-start bg-gray-50 rounded p-3">
-                        <DocumentTextIcon className="h-5 w-5 text-gray-500 mr-3 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-700">{documento}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
-                    <div className="flex">
-                      <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2" />
-                      <p className="text-sm text-yellow-700">
-                        <strong>Importante:</strong> Tendrás la oportunidad de subir estos documentos después de crear la solicitud.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         );
@@ -285,44 +435,126 @@ const SolicitarTramitePage = () => {
                 Información Adicional
               </h3>
               
-              <div className="space-y-4">
-                {/* Campos específicos según el tipo de trámite */}
+              <div className="space-y-4">                {/* Campos específicos según el tipo de trámite */}
                 {tramite.categoria === 'licencias' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Dirección de la obra *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.datos_adicionales.direccion_obra || ''}
-                      onChange={(e) => handleDatosAdicionalesChange('direccion_obra', e.target.value)}
-                      className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
-                        errors.direccion_obra ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                      placeholder="Ingresa la dirección completa donde se realizará la obra"
-                    />
-                    {errors.direccion_obra && (
-                      <p className="mt-1 text-sm text-red-600">{errors.direccion_obra}</p>
-                    )}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Dirección de la obra *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.datos_adicionales.direccion_obra || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('direccion_obra', e.target.value)}
+                        className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                          errors.direccion_obra ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Ingresa la dirección completa donde se realizará la obra"
+                      />
+                      {errors.direccion_obra && (
+                        <p className="mt-1 text-sm text-red-600">{errors.direccion_obra}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Área de construcción (m²) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.datos_adicionales.area_construccion || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('area_construccion', e.target.value)}
+                        className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                          errors.area_construccion ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Ingresa el área en metros cuadrados"
+                      />
+                      {errors.area_construccion && (
+                        <p className="mt-1 text-sm text-red-600">{errors.area_construccion}</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {tramite.categoria === 'certificados' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Motivo del certificado
-                    </label>
-                    <select
-                      value={formData.datos_adicionales.motivo || ''}
-                      onChange={(e) => handleDatosAdicionalesChange('motivo', e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                    >
-                      <option value="">Selecciona el motivo</option>
-                      <option value="trabajo">Trabajo</option>
-                      <option value="estudio">Estudio</option>
-                      <option value="tramite_bancario">Trámite bancario</option>
-                      <option value="otro">Otro</option>
-                    </select>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Cantidad de certificados *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.datos_adicionales.cantidad || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('cantidad', e.target.value)}
+                        className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                          errors.cantidad ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Número de certificados a solicitar"
+                      />
+                      {errors.cantidad && (
+                        <p className="mt-1 text-sm text-red-600">{errors.cantidad}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Motivo del certificado
+                      </label>
+                      <select
+                        value={formData.datos_adicionales.motivo || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('motivo', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Selecciona el motivo</option>
+                        <option value="trabajo">Trabajo</option>
+                        <option value="estudio">Estudio</option>
+                        <option value="tramite_bancario">Trámite bancario</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {tramite.categoria === 'permisos' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Duración solicitada (meses) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="24"
+                        value={formData.datos_adicionales.duracion_meses || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('duracion_meses', e.target.value)}
+                        className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 ${
+                          errors.duracion_meses ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                        placeholder="Duración del permiso en meses"
+                      />
+                      {errors.duracion_meses && (
+                        <p className="mt-1 text-sm text-red-600">{errors.duracion_meses}</p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tipo de actividad
+                      </label>
+                      <select
+                        value={formData.datos_adicionales.tipo_actividad || ''}
+                        onChange={(e) => handleDatosAdicionalesChange('tipo_actividad', e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Selecciona el tipo de actividad</option>
+                        <option value="comercial">Comercial</option>
+                        <option value="eventos">Eventos</option>
+                        <option value="construccion">Construcción</option>
+                        <option value="otro">Otro</option>
+                      </select>
+                    </div>
                   </div>
                 )}
 
@@ -353,9 +585,7 @@ const SolicitarTramitePage = () => {
                 </div>
               </div>
             </div>
-          </div>        );
-
-      case 3:
+          </div>        );      case 3:
         return (
           <div className="space-y-6">
             <div>
@@ -363,17 +593,13 @@ const SolicitarTramitePage = () => {
                 Revisión de Requisitos y Documentos
               </h3>
               <p className="text-sm text-gray-600 mb-6">
-                Revisa y confirma que cumples con todos los requisitos y tienes los documentos necesarios.
-              </p>
+                Revisa y confirma que cumples con todos los requisitos y tienes los documentos necesarios.              </p>
               
               <RequirementsPreview 
                 tramite={tramite}
                 datosAdicionales={formData.datos_adicionales}
                 onRequirementsChange={(data) => {
-                  // Verificar si todos los requisitos y documentos están marcados
-                  const allRequisitos = Object.values(data.requisitos).every(Boolean);
-                  const allDocumentos = Object.values(data.documentos).every(Boolean);
-                  setRequirementsCompleted(allRequisitos && allDocumentos);
+                  setRequirementsCompleted(data.completed || false);
                 }}
               />
               

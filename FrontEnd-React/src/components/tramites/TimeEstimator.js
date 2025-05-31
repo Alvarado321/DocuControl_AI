@@ -59,7 +59,7 @@ const TimeEstimator = ({ tramite, datosAdicionales = {}, onTimeChange }) => {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    });
+        });
   };
 
   if (!tramite) return null;
@@ -138,9 +138,10 @@ const TimeEstimator = ({ tramite, datosAdicionales = {}, onTimeChange }) => {
             </div>
 
             {/* Factores que afectan el tiempo */}
-            {estimacionTiempo.factores.length > 0 && (
+            {estimacionTiempo.factores && estimacionTiempo.factores.length > 0 && (
               <>
                 <button
+                  type="button"
                   onClick={() => setShowFactores(!showFactores)}
                   className="w-full flex items-center justify-between p-3 text-left bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
                 >
@@ -164,7 +165,7 @@ const TimeEstimator = ({ tramite, datosAdicionales = {}, onTimeChange }) => {
                         {estimacionTiempo.factores.map((factor, index) => (
                           <div key={index} className="flex items-start p-3 bg-gray-50 rounded-lg">
                             <div className="flex-shrink-0 mr-3">
-                              {factor.efecto.includes('Reduce') ? (
+                              {factor.efecto && factor.efecto.includes('Reduce') ? (
                                 <CheckCircleIcon className="h-5 w-5 text-green-500" />
                               ) : (
                                 <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />

@@ -81,13 +81,11 @@ const tramitesService = {
           costoTotal += costoBase * 0.25; // 25% de recargo para permisos largos
         }
         break;
-    }
-
-    return {
+    }    return {
       costoBase,
       costoTotal: Math.round(costoTotal),
       recargos: costoTotal - costoBase,
-      desglose: this.getDesgloseCosto(tramite, datosAdicionales, costoBase, costoTotal)
+      desglose: tramitesService.getDesgloseCosto(tramite, datosAdicionales, costoBase, costoTotal)
     };
   },
 
@@ -174,13 +172,11 @@ const tramitesService = {
     if (mesActual === 12 || mesActual === 1) {
       tiempoTotal += 2;
       factores.push({ factor: 'Temporada alta', efecto: '+2 días por alta demanda' });
-    }
-
-    return {
+    }    return {
       tiempoBase,
       tiempoEstimado: Math.max(1, tiempoTotal), // Mínimo 1 día
       factores,
-      fechaEstimadaFinalizacion: this.calcularFechaFinalizacion(tiempoTotal)
+      fechaEstimadaFinalizacion: tramitesService.calcularFechaFinalizacion(tiempoTotal)
     };
   },
 

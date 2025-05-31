@@ -6,15 +6,15 @@ import {
   EyeIcon,
   EyeSlashIcon,
   ClipboardDocumentListIcon,
-  ArrowDownTrayIcon,
-  InformationCircleIcon,
-  XCircleIcon
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import Card from '../common/Card';
+import DocumentUpload from './DocumentUpload';
 
 const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsChange }) => {
   const [checkedRequisitos, setCheckedRequisitos] = useState({});
   const [checkedDocumentos, setCheckedDocumentos] = useState({});
+  const [uploadedFiles, setUploadedFiles] = useState({});
   const [showRequisitos, setShowRequisitos] = useState(true);
   const [showDocumentos, setShowDocumentos] = useState(true);
   const [expandedRequisito, setExpandedRequisito] = useState(null);
@@ -56,8 +56,7 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
           });
         }
         break;
-        
-      case 'permisos':
+          case 'permisos':
         if (datosAdicionales.requiere_inspeccion) {
           adicionales.push({
             id: 'solicitud_inspeccion',
@@ -67,6 +66,10 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
             descripcion: 'Formulario específico para solicitar la visita de inspección técnica.'
           });
         }
+        break;
+        
+      default:
+        // No hay requisitos adicionales para otras categorías
         break;
     }
     
@@ -100,14 +103,16 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
             tamaño_max: '2MB',
             obligatorio: true,
             descripcion: 'Carta oficial de la empresa explicando el motivo del certificado'
-          });
-        }
+          });        }
+        break;
+        
+      default:
+        // No hay documentos adicionales para otras categorías
         break;
     }
     
     return adicionales;
   };
-
   const handleRequisitoCheck = (requisitoId, checked) => {
     const newCheckedRequisitos = {
       ...checkedRequisitos,
@@ -115,14 +120,17 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
     };
     setCheckedRequisitos(newCheckedRequisitos);
     
+    // Calcular si todos los requisitos obligatorios están completos
+    const allCompleted = calculateCompletion(newCheckedRequisitos, checkedDocumentos);
+    
     if (onRequirementsChange) {
       onRequirementsChange({
         requisitos: newCheckedRequisitos,
-        documentos: checkedDocumentos
+        documentos: checkedDocumentos,
+        completed: allCompleted
       });
     }
   };
-
   const handleDocumentoCheck = (documentoId, checked) => {
     const newCheckedDocumentos = {
       ...checkedDocumentos,
@@ -130,12 +138,83 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
     };
     setCheckedDocumentos(newCheckedDocumentos);
     
+    // Calcular si todos los requisitos obligatorios están completos
+    const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
+    
     if (onRequirementsChange) {
       onRequirementsChange({
         requisitos: checkedRequisitos,
-        documentos: newCheckedDocumentos
+        documentos: newCheckedDocumentos,
+        uploadedFiles,
+        completed: allCompleted
       });
     }
+  };
+
+  // Manejar upload de archivos
+  const handleFileUpload = (documentoId, fileData) => {
+    const newUploadedFiles = {
+      ...uploadedFiles,
+      [documentoId]: fileData
+    };
+    setUploadedFiles(newUploadedFiles);
+    
+    // Automáticamente marcar el documento como completado si se sube un archivo
+    if (fileData) {
+      const newCheckedDocumentos = {
+        ...checkedDocumentos,
+        [documentoId]: true
+      };
+      setCheckedDocumentos(newCheckedDocumentos);
+      
+      // Calcular si todos los requisitos obligatorios están completos
+      const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
+      
+      if (onRequirementsChange) {
+        onRequirementsChange({
+          requisitos: checkedRequisitos,
+          documentos: newCheckedDocumentos,
+          uploadedFiles: newUploadedFiles,
+          completed: allCompleted
+        });
+      }
+    } else {
+      // Si se elimina el archivo, desmarcar el documento
+      const newCheckedDocumentos = {
+        ...checkedDocumentos,
+        [documentoId]: false
+      };
+      setCheckedDocumentos(newCheckedDocumentos);
+      
+      const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
+      
+      if (onRequirementsChange) {
+        onRequirementsChange({
+          requisitos: checkedRequisitos,
+          documentos: newCheckedDocumentos,
+          uploadedFiles: newUploadedFiles,
+          completed: allCompleted
+        });
+      }
+    }
+  };  // Función para calcular si todos los requisitos obligatorios están completos
+  const calculateCompletion = (requisitoState, documentoState) => {
+    const todosRequisitos = [...(tramite.requisitos || []), ...getRequisitosAdicionales()];
+    const todosDocumentos = [...(tramite.documentos || []), ...getDocumentosAdicionales()];
+    
+    // Verificar requisitos obligatorios
+    const requisitosObligatorios = todosRequisitos.filter(r => r.obligatorio !== false);
+    const requisitosCompletos = requisitosObligatorios.length === 0 || requisitosObligatorios.every(r => requisitoState[r.id] === true);
+    
+    // Verificar documentos obligatorios
+    const documentosObligatorios = todosDocumentos.filter(d => d.obligatorio !== false);
+    const documentosCompletos = documentosObligatorios.length === 0 || documentosObligatorios.every(d => {
+      return documentoState[d.id] === true;
+    });
+    
+    const allCompleted = requisitosCompletos && documentosCompletos;
+    
+    return allCompleted;
   };
 
   const getCategoriaColor = (categoria) => {
@@ -275,8 +354,8 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
       {/* Requisitos */}
       {todosRequisitos.length > 0 && (
         <Card>
-          <div className="p-6">
-            <button
+          <div className="p-6">            <button
+              type="button"
               onClick={() => setShowRequisitos(!showRequisitos)}
               className="flex items-center justify-between w-full text-left mb-4"
             >
@@ -330,8 +409,8 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
                               </span>
                             )}
                           </div>
-                        </div>
-                        <button
+                        </div>                        <button
+                          type="button"
                           onClick={() => setExpandedRequisito(
                             expandedRequisito === requisito.id ? null : requisito.id
                           )}
@@ -358,8 +437,8 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
       {/* Documentos */}
       {todosDocumentos.length > 0 && (
         <Card>
-          <div className="p-6">
-            <button
+          <div className="p-6">            <button
+              type="button"
               onClick={() => setShowDocumentos(!showDocumentos)}
               className="flex items-center justify-between w-full text-left mb-4"
             >
@@ -409,12 +488,17 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
                             </span>
                           )}
                         </div>
-                        
-                        <div className="text-xs text-gray-600 space-y-1">
+                          <div className="text-xs text-gray-600 space-y-1 mb-3">
                           <p><strong>Formato aceptado:</strong> {documento.formato}</p>
                           <p><strong>Tamaño máximo:</strong> {documento.tamaño_max}</p>
                           <p><strong>Descripción:</strong> {documento.descripcion}</p>
                         </div>
+                        
+                        {/* Componente de upload */}
+                        <DocumentUpload 
+                          documento={documento}
+                          onUploadComplete={handleFileUpload}
+                        />
                       </div>
                     </div>
                   </div>
