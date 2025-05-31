@@ -5,12 +5,10 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
-import documentosService from '../../services/documentosService';
 
-const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
+const TempDocumentUpload = ({ documento, onFileSelected }) => {
   const [dragActive, setDragActive] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState(null);
 
   // Validar que el documento tenga la estructura esperada
@@ -62,7 +60,8 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
       handleFile(e.target.files[0]);
     }
   };
-  const handleFile = async (file) => {
+
+  const handleFile = (file) => {
     setError(null);
     
     // Validar tipo de archivo
@@ -77,56 +76,28 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
       return;
     }
 
-    // Verificar que tenemos solicitudId
-    if (!solicitudId) {
-      setError('Error: No se puede subir el archivo sin una solicitud válida.');
-      return;
-    }
-
-    setUploading(true);
+    // Almacenar el archivo seleccionado
+    const fileData = {
+      file: file,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      documentoId: documento.id
+    };
     
-    try {
-      // Crear FormData para enviar al backend
-      const formData = new FormData();
-      formData.append('archivo', file);
-      formData.append('tipo_documento', documento.nombre || 'general');
-      
-      // Llamar al servicio real
-      const result = await documentosService.subirDocumento(solicitudId, formData);
-      
-      if (result.success) {
-        const uploadedFileData = {
-          id: result.data.documento.id,
-          name: result.data.documento.nombre_original,
-          size: result.data.documento.tamano_bytes,
-          type: result.data.documento.tipo_mime,
-          uploadDate: new Date(result.data.documento.fecha_subida),
-          documentoId: result.data.documento.id,
-          serverPath: result.data.documento.ruta_archivo
-        };
-        
-        setUploadedFile(uploadedFileData);
-        
-        // Notificar al componente padre
-        if (onUploadComplete) {
-          onUploadComplete(documento.id, uploadedFileData);
-        }
-      } else {
-        setError(result.error || 'Error al subir el archivo');
-      }
-      
-    } catch (err) {
-      setError('Error al cargar el archivo. Inténtalo de nuevo.');
-    } finally {
-      setUploading(false);
+    setSelectedFile(fileData);
+    
+    // Notificar al componente padre
+    if (onFileSelected) {
+      onFileSelected(documento.id, fileData);
     }
   };
 
   const removeFile = () => {
-    setUploadedFile(null);
+    setSelectedFile(null);
     setError(null);
-    if (onUploadComplete) {
-      onUploadComplete(documento.id, null);
+    if (onFileSelected) {
+      onFileSelected(documento.id, null);
     }
   };
 
@@ -138,16 +109,16 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  if (uploadedFile) {
+  if (selectedFile) {
     return (
       <div className="border border-green-200 rounded-lg p-4 bg-green-50">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <CheckCircleIcon className="h-8 w-8 text-green-500" />
             <div>
-              <p className="font-medium text-green-900">{uploadedFile.name}</p>
+              <p className="font-medium text-green-900">{selectedFile.name}</p>
               <p className="text-sm text-green-600">
-                {formatFileSize(uploadedFile.size)} • Cargado exitosamente
+                {formatFileSize(selectedFile.size)} • Archivo seleccionado
               </p>
             </div>
           </div>
@@ -182,35 +153,27 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
           accept={allowedTypes.join(',')}
           onChange={handleFileSelect}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={uploading}
         />
         
-        {uploading ? (
-          <div className="space-y-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-            <p className="text-sm text-gray-600">Cargando archivo...</p>
+        <div className="space-y-2">
+          {error ? (
+            <ExclamationTriangleIcon className="mx-auto h-8 w-8 text-red-500" />
+          ) : (
+            <CloudArrowUpIcon className="mx-auto h-8 w-8 text-gray-400" />
+          )}
+          <div>
+            <p className="text-sm font-medium text-gray-900">
+              {error ? 'Error al seleccionar archivo' : 'Selecciona tu archivo'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {error ? error : `Arrastra aquí o haz clic para seleccionar`}
+            </p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {error ? (
-              <ExclamationTriangleIcon className="mx-auto h-8 w-8 text-red-500" />
-            ) : (
-              <CloudArrowUpIcon className="mx-auto h-8 w-8 text-gray-400" />
-            )}
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {error ? 'Error al cargar archivo' : 'Arrastra tu archivo aquí'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {error ? error : `o haz clic para seleccionar`}
-              </p>
-            </div>
-            <div className="text-xs text-gray-500">
-              <p>Formatos: {documento.formato}</p>
-              <p>Tamaño máximo: {documento.tamaño_max}</p>
-            </div>
+          <div className="text-xs text-gray-500">
+            <p>Formatos: {documento.formato}</p>
+            <p>Tamaño máximo: {documento.tamaño_max}</p>
           </div>
-        )}
+        </div>
       </div>
       
       {error && (
@@ -222,4 +185,4 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
   );
 };
 
-export default DocumentUpload;
+export default TempDocumentUpload;

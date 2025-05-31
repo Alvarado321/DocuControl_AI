@@ -130,7 +130,7 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
         completed: allCompleted
       });
     }
-  };
+  };  // Manejar checkbox de documentos (solo confirmar que los tiene, no subir)
   const handleDocumentoCheck = (documentoId, checked) => {
     const newCheckedDocumentos = {
       ...checkedDocumentos,
@@ -138,66 +138,20 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
     };
     setCheckedDocumentos(newCheckedDocumentos);
     
-    // Calcular si todos los requisitos obligatorios están completos
+    // Calcular si todos los requisitos obligatorios están confirmados
     const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
     
     if (onRequirementsChange) {
       onRequirementsChange({
         requisitos: checkedRequisitos,
         documentos: newCheckedDocumentos,
-        uploadedFiles,
+        uploadedFiles: {}, // No hay archivos subidos en esta etapa
         completed: allCompleted
       });
     }
   };
-
-  // Manejar upload de archivos
-  const handleFileUpload = (documentoId, fileData) => {
-    const newUploadedFiles = {
-      ...uploadedFiles,
-      [documentoId]: fileData
-    };
-    setUploadedFiles(newUploadedFiles);
-    
-    // Automáticamente marcar el documento como completado si se sube un archivo
-    if (fileData) {
-      const newCheckedDocumentos = {
-        ...checkedDocumentos,
-        [documentoId]: true
-      };
-      setCheckedDocumentos(newCheckedDocumentos);
-      
-      // Calcular si todos los requisitos obligatorios están completos
-      const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
-      
-      if (onRequirementsChange) {
-        onRequirementsChange({
-          requisitos: checkedRequisitos,
-          documentos: newCheckedDocumentos,
-          uploadedFiles: newUploadedFiles,
-          completed: allCompleted
-        });
-      }
-    } else {
-      // Si se elimina el archivo, desmarcar el documento
-      const newCheckedDocumentos = {
-        ...checkedDocumentos,
-        [documentoId]: false
-      };
-      setCheckedDocumentos(newCheckedDocumentos);
-      
-      const allCompleted = calculateCompletion(checkedRequisitos, newCheckedDocumentos);
-      
-      if (onRequirementsChange) {
-        onRequirementsChange({
-          requisitos: checkedRequisitos,
-          documentos: newCheckedDocumentos,
-          uploadedFiles: newUploadedFiles,
-          completed: allCompleted
-        });
-      }
-    }
-  };  // Función para calcular si todos los requisitos obligatorios están completos
+  // Esta función ya no es necesaria en RequirementsPreview
+  // La subida de archivos se maneja en el Paso 4// Función para calcular si todos los requisitos obligatorios están completos
   const calculateCompletion = (requisitoState, documentoState) => {
     const todosRequisitos = [...(tramite.requisitos || []), ...getRequisitosAdicionales()];
     const todosDocumentos = [...(tramite.documentos || []), ...getDocumentosAdicionales()];
@@ -472,16 +426,20 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
                           onChange={(e) => handleDocumentoCheck(documento.id, e.target.checked)}
                           className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
                         />
-                      </div>
-                      <div className="ml-3 flex-1">
+                      </div>                      <div className="ml-3 flex-1">
                         <div className="flex items-center justify-between mb-2">
-                          <p className={`text-sm font-medium ${
-                            checkedDocumentos[documento.id] 
-                              ? 'line-through text-gray-500' 
-                              : 'text-gray-900'
-                          }`}>
-                            {documento.nombre}
-                          </p>
+                          <div>
+                            <p className={`text-sm font-medium ${
+                              checkedDocumentos[documento.id] 
+                                ? 'text-green-600' 
+                                : 'text-gray-900'
+                            }`}>
+                              {documento.nombre}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              ✓ Confirmo que tengo este documento listo para subir
+                            </p>
+                          </div>
                           {documento.obligatorio && (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                               Obligatorio
@@ -493,12 +451,12 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
                           <p><strong>Tamaño máximo:</strong> {documento.tamaño_max}</p>
                           <p><strong>Descripción:</strong> {documento.descripcion}</p>
                         </div>
-                        
-                        {/* Componente de upload */}
-                        <DocumentUpload 
-                          documento={documento}
-                          onUploadComplete={handleFileUpload}
-                        />
+                          {/* Solo mostrar información del documento, no el upload */}
+                        <div className="bg-gray-50 rounded p-2 mt-2">
+                          <p className="text-xs text-gray-600">
+                            📄 Este documento será solicitado en el siguiente paso
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -507,13 +465,13 @@ const RequirementsPreview = ({ tramite, datosAdicionales = {}, onRequirementsCha
                 <div className="bg-blue-50 rounded-lg p-4 mt-4">
                   <div className="flex items-start">
                     <InformationCircleIcon className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-700">
-                      <p className="font-medium mb-1">Importante sobre los documentos:</p>
+                    <div className="text-sm text-blue-700">                      <p className="font-medium mb-1">Importante sobre los requisitos y documentos:</p>
                       <ul className="space-y-1 text-xs">
-                        <li>• Todos los documentos deben estar en formato digital</li>
+                        <li>• Confirma que cumples con todos los requisitos marcados</li>
+                        <li>• Asegúrate de tener todos los documentos listos en formato digital</li>
                         <li>• Los documentos deben ser legibles y en buena calidad</li>
                         <li>• No se aceptan documentos vencidos o con información incompleta</li>
-                        <li>• Puedes subir los documentos después de crear la solicitud</li>
+                        <li>• Podrás subir los documentos en el siguiente paso</li>
                       </ul>
                     </div>
                   </div>
