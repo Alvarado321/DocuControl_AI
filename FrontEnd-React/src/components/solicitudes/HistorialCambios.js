@@ -24,21 +24,43 @@ const HistorialCambios = ({ solicitudId }) => {
   const [selectedChange, setSelectedChange] = useState(null);
   const [showAllChanges, setShowAllChanges] = useState(false);
   const [filterType, setFilterType] = useState('all');
-
-  const { data: historial = [], isLoading, error } = useQuery({
+  const { data: historialResponse, isLoading, error } = useQuery({
     queryKey: ['historial-cambios', solicitudId],
-    queryFn: () => solicitudesService.getHistorialCambios(solicitudId),
+    queryFn: async () => {
+      const result = await solicitudesService.getHistorialCambios(solicitudId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
     enabled: !!solicitudId
   });
 
+  const historial = historialResponse || [];
   const formatDate = (dateString) => {
-    return new Intl.DateTimeFormat('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(dateString));
+    if (!dateString) {
+      return 'Fecha no disponible';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return new Intl.DateTimeFormat('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.warn('Error formateando fecha:', dateString, error);
+      return 'Fecha inválida';
+    }
   };
 
   const getChangeTypeInfo = (tipo) => {

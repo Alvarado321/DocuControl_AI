@@ -84,15 +84,30 @@ const TimelineEstados = ({ solicitudId }) => {
         return InformationCircleIcon;
     }
   };
-
   const formatDate = (dateString) => {
-    return new Intl.DateTimeFormat('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(dateString));
+    if (!dateString) {
+      return 'Fecha no disponible';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return new Intl.DateTimeFormat('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.warn('Error formateando fecha:', dateString, error);
+      return 'Fecha inválida';
+    }
   };
 
   if (isLoading) {

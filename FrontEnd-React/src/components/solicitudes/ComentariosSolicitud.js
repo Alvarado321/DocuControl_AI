@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChatBubbleLeftRightIcon,
   PaperAirplaneIcon,
-  UserIcon,
   ClockIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
@@ -121,15 +120,30 @@ const ComentariosSolicitud = ({ solicitudId }) => {
       setEnviandoComentario(false);
     }
   };
-
   const formatDate = (dateString) => {
-    return new Intl.DateTimeFormat('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(dateString));
+    if (!dateString) {
+      return 'Fecha no disponible';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return new Intl.DateTimeFormat('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.warn('Error formateando fecha:', dateString, error);
+      return 'Fecha inválida';
+    }
   };
 
   const getInitials = (nombre) => {

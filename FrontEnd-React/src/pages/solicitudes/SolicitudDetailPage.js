@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
@@ -7,17 +7,13 @@ import {
   ClockIcon,
   UserIcon,
   TagIcon,
-  CheckCircleIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  DocumentArrowDownIcon,
   PrinterIcon,
   ShareIcon,
   ChatBubbleLeftRightIcon,
   CalendarIcon,
-  HashtagIcon,
-  PencilIcon,
-  EyeIcon
+  HashtagIcon
 } from '@heroicons/react/24/outline';
 
 import solicitudesService from '../../services/solicitudesService';
@@ -32,18 +28,15 @@ import { useNotification } from '../../context/NotificationContext';
 
 const SolicitudDetailPage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState('detalles');
   const [showTimeline, setShowTimeline] = useState(true);
   const [showDatosSolicitante, setShowDatosSolicitante] = useState(true);
-
   // Obtener detalles de la solicitud
   const {
     data: solicitud,
     isLoading: loadingSolicitud,
-    error: solicitudError,
-    refetch
+    error: solicitudError
   } = useQuery({
     queryKey: ['solicitud', id],
     queryFn: async () => {
@@ -57,11 +50,9 @@ const SolicitudDetailPage = () => {
       showNotification(`Error al cargar solicitud: ${error.message}`, 'error');
     }
   });
-
   // Obtener información del trámite relacionado
   const {
-    data: tramite,
-    isLoading: loadingTramite
+    data: tramite
   } = useQuery({
     queryKey: ['tramite', solicitud?.tramite_id],
     queryFn: async () => {
@@ -87,15 +78,30 @@ const SolicitudDetailPage = () => {
     const found = prioridades.find(p => p.value === prioridad);
     return found || { label: prioridad, value: prioridad, color: 'gray' };
   };
-
   const formatDate = (dateString) => {
-    return new Intl.DateTimeFormat('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(new Date(dateString));
+    if (!dateString) {
+      return 'Fecha no disponible';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return new Intl.DateTimeFormat('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      console.warn('Error formateando fecha:', dateString, error);
+      return 'Fecha inválida';
+    }
   };
 
   const formatCurrency = (amount) => {
