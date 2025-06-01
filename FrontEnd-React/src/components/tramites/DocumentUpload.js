@@ -61,29 +61,36 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
-  };
-  const handleFile = async (file) => {
+  };  const handleFile = async (file) => {
     setError(null);
+    console.log('Procesando archivo:', file.name, 'Tamaño:', file.size);
     
     // Validar tipo de archivo
     if (!allowedTypes.includes(file.type) && !allowedTypes.some(type => file.name.toLowerCase().endsWith(type.split('/')[1]))) {
-      setError(`Tipo de archivo no permitido. Formatos aceptados: ${documento.formato}`);
+      const errorMsg = `Tipo de archivo no permitido. Formatos aceptados: ${documento.formato}`;
+      setError(errorMsg);
+      console.error(errorMsg);
       return;
     }
 
     // Validar tamaño
     if (file.size > maxSize) {
-      setError(`El archivo es demasiado grande. Tamaño máximo: ${documento.tamaño_max}`);
+      const errorMsg = `El archivo es demasiado grande. Tamaño máximo: ${documento.tamaño_max}`;
+      setError(errorMsg);
+      console.error(errorMsg);
       return;
     }
 
     // Verificar que tenemos solicitudId
     if (!solicitudId) {
-      setError('Error: No se puede subir el archivo sin una solicitud válida.');
+      const errorMsg = 'Error: No se puede subir el archivo sin una solicitud válida.';
+      setError(errorMsg);
+      console.error(errorMsg);
       return;
     }
 
     setUploading(true);
+    console.log(`Iniciando subida de archivo para solicitud ${solicitudId}`);
     
     try {
       // Crear FormData para enviar al backend
@@ -91,10 +98,14 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
       formData.append('archivo', file);
       formData.append('tipo_documento', documento.nombre || 'general');
       
+      console.log('FormData creado, enviando al servidor...');
+      
       // Llamar al servicio real
       const result = await documentosService.subirDocumento(solicitudId, formData);
       
       if (result.success) {
+        console.log('Archivo subido exitosamente:', result.data);
+        
         const uploadedFileData = {
           id: result.data.documento.id,
           name: result.data.documento.nombre_original,
@@ -102,7 +113,9 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
           type: result.data.documento.tipo_mime,
           uploadDate: new Date(result.data.documento.fecha_subida),
           documentoId: result.data.documento.id,
-          serverPath: result.data.documento.ruta_archivo
+          serverPath: result.data.documento.ruta_archivo,
+          hash: result.data.documento.hash_archivo,
+          estado: result.data.documento.estado_validacion
         };
         
         setUploadedFile(uploadedFileData);
@@ -111,12 +124,18 @@ const DocumentUpload = ({ documento, onUploadComplete, solicitudId }) => {
         if (onUploadComplete) {
           onUploadComplete(documento.id, uploadedFileData);
         }
+        
+        console.log('Proceso de subida completado exitosamente');
       } else {
-        setError(result.error || 'Error al subir el archivo');
+        const errorMsg = result.error || 'Error al subir el archivo';
+        setError(errorMsg);
+        console.error('Error del servidor:', errorMsg);
       }
       
     } catch (err) {
-      setError('Error al cargar el archivo. Inténtalo de nuevo.');
+      const errorMsg = 'Error al cargar el archivo. Inténtalo de nuevo.';
+      setError(errorMsg);
+      console.error('Error inesperado:', err);
     } finally {
       setUploading(false);
     }

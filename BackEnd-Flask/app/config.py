@@ -24,10 +24,23 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hora
     JWT_ALGORITHM = 'HS256'
     JWT_IDENTITY_CLAIM = 'sub'
-    
-    # Configuración de archivos
+      # Configuración de archivos
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB máximo por archivo
+    
+    # Tipos de archivo permitidos
+    ALLOWED_EXTENSIONS = {
+        'pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'dwg', 'txt'
+    }
+    
+    # Configuración de directorios
+    @staticmethod
+    def init_app(app):
+        """Inicializar directorios necesarios"""
+        upload_folder = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder, exist_ok=True)
+            print(f"Directorio de uploads creado: {upload_folder}")
     
     # Configuración de CORS
     CORS_ORIGINS = ["http://localhost:3000"]  # Para React en desarrollo

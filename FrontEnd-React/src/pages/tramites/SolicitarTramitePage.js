@@ -186,29 +186,52 @@ const SolicitarTramitePage = () => {
         throw new Error(solicitudResult.error || 'Error al crear la solicitud');
       }
 
-      const solicitudCreada = solicitudResult.data.solicitud || solicitudResult.data;
-
-      // 2. Subir documentos si hay alguno seleccionado
+      const solicitudCreada = solicitudResult.data.solicitud || solicitudResult.data;      // 2. Subir documentos si hay alguno seleccionado
       const documentosKeys = Object.keys(documentosSubidos);
+      let documentosSubidosCount = 0;
+      let documentosErrorCount = 0;
+      
       if (documentosKeys.length > 0) {
-        showNotification('Subiendo documentos...', 'info');
+        showNotification(`Subiendo ${documentosKeys.length} documento(s)...`, 'info');
+        console.log(`Iniciando subida de ${documentosKeys.length} documentos para solicitud ${solicitudCreada.id}`);
 
         for (const docId of documentosKeys) {
           const fileData = documentosSubidos[docId];
           if (fileData && fileData.file) {
             try {
+              console.log(`Subiendo documento: ${fileData.name} (${fileData.file.size} bytes)`);
+              
               const formData = new FormData();
               formData.append('archivo', fileData.file);
               formData.append('tipo_documento', fileData.name || 'documento');
 
-              await documentosService.subirDocumento(solicitudCreada.id, formData);
+              const result = await documentosService.subirDocumento(solicitudCreada.id, formData);
+              
+              if (result.success) {
+                documentosSubidosCount++;
+                console.log(`Documento subido exitosamente: ${fileData.name}`);
+              } else {
+                documentosErrorCount++;
+                console.error(`Error subiendo documento ${fileData.name}:`, result.error);
+              }
             } catch (error) {
-              console.error(`Error subiendo documento ${fileData.name}:`, error);
-              // Continuar con otros documentos aunque uno falle
+              documentosErrorCount++;
+              console.error(`Error inesperado subiendo documento ${fileData.name}:`, error);
             }
+          } else {
+            console.warn(`Documento ${docId} no tiene archivo válido`);
           }
         }
-      }      showNotification('Solicitud creada exitosamente', 'success');
+        
+        // Mostrar resultado de la subida de documentos
+        if (documentosErrorCount === 0) {
+          showNotification(`Todos los documentos (${documentosSubidosCount}) fueron subidos exitosamente`, 'success');
+        } else if (documentosSubidosCount > 0) {
+          showNotification(`${documentosSubidosCount} documentos subidos, ${documentosErrorCount} con errores`, 'warning');
+        } else {
+          showNotification(`Error: No se pudieron subir los documentos`, 'error');
+        }
+      }showNotification('Solicitud creada exitosamente', 'success');
       
       // Navegar al dashboard después de crear la solicitud
       setTimeout(() => {

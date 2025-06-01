@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from app import db
 from app.models import Usuario, Tramite, Solicitud, Documento, HistorialEstado
@@ -295,6 +295,11 @@ def get_solicitud(solicitud_id):
 # RUTAS DE DOCUMENTOS
 # ================================================================================================
 
+def allowed_file(filename):
+    """Verificar si el archivo tiene una extensión permitida"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
 @documentos_bp.route('/subir/<int:solicitud_id>', methods=['POST'])
 @jwt_required()
 def subir_documento(solicitud_id):
@@ -302,16 +307,22 @@ def subir_documento(solicitud_id):
     try:
         user_id = int(get_jwt_identity())
         
+        # Verificar que existe la solicitud y el usuario tiene permisos
         solicitud = Solicitud.query.get(solicitud_id)
         if not solicitud:
             return jsonify({'error': 'Solicitud no encontrada'}), 404
         
-        # Verificar permisos
-        if solicitud.usuario_id != user_id:
+        usuario = Usuario.query.get(user_id)
+        if not usuario:
+            return jsonify({'error': 'Usuario no válido'}), 401
+        
+        # Verificar permisos (ciudadano solo puede subir a sus solicitudes)
+        if usuario.rol == 'ciudadano' and solicitud.usuario_id != user_id:
             return jsonify({'error': 'Sin permisos para subir documentos a esta solicitud'}), 403
         
+        # Validar que se envió un archivo
         if 'archivo' not in request.files:
-            return jsonify({'error': 'No se encontró archivo'}), 400
+            return jsonify({'error': 'No se encontró archivo en la petición'}), 400
         
         archivo = request.files['archivo']
         tipo_documento = request.form.get('tipo_documento', 'general')
@@ -319,18 +330,54 @@ def subir_documento(solicitud_id):
         if archivo.filename == '':
             return jsonify({'error': 'No se seleccionó archivo'}), 400
         
-        # Generar nombre seguro
+        # Validar extensión del archivo
+        if not allowed_file(archivo.filename):
+            return jsonify({
+                'error': f'Tipo de archivo no permitido. Extensiones permitidas: {", ".join(current_app.config["ALLOWED_EXTENSIONS"])}'
+            }), 400
+        
+        # Asegurar que el directorio de uploads existe
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder, exist_ok=True)
+            current_app.logger.info(f"Directorio de uploads creado: {upload_folder}")
+        
+        # Generar nombre seguro y único
         filename = secure_filename(archivo.filename)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        nombre_archivo = f"{solicitud_id}_{timestamp}_{filename}"
+        import random
+        random_suffix = random.randint(1000, 9999)
+        nombre_archivo = f"{solicitud_id}_{timestamp}_{random_suffix}_{filename}"
         
-        # Guardar archivo
-        ruta_archivo = os.path.join(current_app.config['UPLOAD_FOLDER'], nombre_archivo)
-        archivo.save(ruta_archivo)
+        # Ruta completa del archivo
+        ruta_archivo = os.path.join(upload_folder, nombre_archivo)
         
-        # Calcular hash del archivo
-        with open(ruta_archivo, 'rb') as f:
-            hash_archivo = hashlib.sha256(f.read()).hexdigest()
+        # Guardar archivo en el sistema de archivos
+        try:
+            archivo.save(ruta_archivo)
+            current_app.logger.info(f"Archivo guardado exitosamente: {ruta_archivo}")
+        except Exception as save_error:
+            current_app.logger.error(f"Error al guardar archivo: {save_error}")
+            return jsonify({'error': f'Error al guardar archivo: {str(save_error)}'}), 500
+        
+        # Verificar que el archivo se guardó correctamente
+        if not os.path.exists(ruta_archivo):
+            return jsonify({'error': 'Error: El archivo no se guardó correctamente'}), 500
+        
+        # Calcular hash del archivo para verificar integridad
+        try:
+            with open(ruta_archivo, 'rb') as f:
+                hash_archivo = hashlib.sha256(f.read()).hexdigest()
+        except Exception as hash_error:
+            current_app.logger.error(f"Error al calcular hash: {hash_error}")
+            # Eliminar archivo si no se puede calcular el hash
+            if os.path.exists(ruta_archivo):
+                os.remove(ruta_archivo)
+            return jsonify({'error': 'Error al procesar archivo'}), 500
+        
+        # Obtener información del archivo
+        tamano_bytes = os.path.getsize(ruta_archivo)
+        tipo_mime = archivo.content_type or 'application/octet-stream'
         
         # Crear registro en base de datos
         documento = Documento(
@@ -339,14 +386,23 @@ def subir_documento(solicitud_id):
             nombre_original=filename,
             tipo_documento=tipo_documento,
             ruta_archivo=ruta_archivo,
-            tamano_bytes=os.path.getsize(ruta_archivo),
-            tipo_mime=archivo.content_type or 'application/octet-stream',
+            tamano_bytes=tamano_bytes,
+            tipo_mime=tipo_mime,
             hash_archivo=hash_archivo,
             subido_por=user_id
         )
         
-        db.session.add(documento)
-        db.session.commit()
+        try:
+            db.session.add(documento)
+            db.session.commit()
+            current_app.logger.info(f"Documento registrado en BD: ID {documento.id}")
+        except Exception as db_error:
+            db.session.rollback()
+            # Eliminar archivo físico si falla la BD
+            if os.path.exists(ruta_archivo):
+                os.remove(ruta_archivo)
+            current_app.logger.error(f"Error en base de datos: {db_error}")
+            return jsonify({'error': f'Error al guardar en base de datos: {str(db_error)}'}), 500
         
         return jsonify({
             'message': 'Documento subido exitosamente',
@@ -355,6 +411,206 @@ def subir_documento(solicitud_id):
         
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f"Error general al subir documento: {e}")
+        return jsonify({'error': f'Error interno del servidor: {str(e)}'}), 500
+
+@documentos_bp.route('/<int:documento_id>', methods=['GET'])
+@jwt_required()
+def obtener_documento(documento_id):
+    """Obtener información de un documento específico"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        
+        documento = Documento.query.get(documento_id)
+        if not documento:
+            return jsonify({'error': 'Documento no encontrado'}), 404
+        
+        # Verificar permisos
+        if usuario.rol == 'ciudadano' and documento.solicitud.usuario_id != user_id:
+            return jsonify({'error': 'Sin permisos para acceder a este documento'}), 403
+        
+        # Verificar que el archivo físico existe
+        if not os.path.exists(documento.ruta_archivo):
+            return jsonify({
+                'error': 'Archivo físico no encontrado',
+                'documento': documento.to_dict()
+            }), 404
+        
+        return jsonify({
+            'documento': documento.to_dict(),
+            'archivo_existe': True
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@documentos_bp.route('/solicitud/<int:solicitud_id>', methods=['GET'])
+@jwt_required()
+def obtener_documentos_solicitud(solicitud_id):
+    """Obtener todos los documentos de una solicitud"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        
+        solicitud = Solicitud.query.get(solicitud_id)
+        if not solicitud:
+            return jsonify({'error': 'Solicitud no encontrada'}), 404
+        
+        # Verificar permisos
+        if usuario.rol == 'ciudadano' and solicitud.usuario_id != user_id:
+            return jsonify({'error': 'Sin permisos para acceder a esta solicitud'}), 403
+        
+        documentos = Documento.query.filter_by(solicitud_id=solicitud_id).all()
+        
+        documentos_data = []
+        for doc in documentos:
+            doc_data = doc.to_dict()
+            doc_data['archivo_existe'] = os.path.exists(doc.ruta_archivo)
+            documentos_data.append(doc_data)
+        
+        return jsonify({
+            'documentos': documentos_data,
+            'total': len(documentos_data)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@documentos_bp.route('/descargar/<int:documento_id>', methods=['GET'])
+@jwt_required()
+def descargar_documento(documento_id):
+    """Descargar un documento"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        
+        documento = Documento.query.get(documento_id)
+        if not documento:
+            return jsonify({'error': 'Documento no encontrado'}), 404
+        
+        # Verificar permisos
+        if usuario.rol == 'ciudadano' and documento.solicitud.usuario_id != user_id:
+            return jsonify({'error': 'Sin permisos para descargar este documento'}), 403
+        
+        # Verificar que el archivo existe
+        if not os.path.exists(documento.ruta_archivo):
+            return jsonify({'error': 'Archivo físico no encontrado'}), 404
+        
+        # Verificar integridad del archivo (opcional)
+        try:
+            with open(documento.ruta_archivo, 'rb') as f:
+                hash_actual = hashlib.sha256(f.read()).hexdigest()
+            
+            if hash_actual != documento.hash_archivo:
+                current_app.logger.warning(f"Hash del archivo {documento_id} no coincide")
+                return jsonify({'error': 'Archivo corrupto o modificado'}), 422
+        except Exception as hash_error:
+            current_app.logger.error(f"Error verificando hash: {hash_error}")
+        
+        return send_file(
+            documento.ruta_archivo,
+            as_attachment=True,
+            download_name=documento.nombre_original,
+            mimetype=documento.tipo_mime
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Error descargando documento: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@documentos_bp.route('/<int:documento_id>', methods=['DELETE'])
+@jwt_required()
+def eliminar_documento(documento_id):
+    """Eliminar un documento (solo para administradores)"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        
+        # Solo administradores pueden eliminar documentos
+        if usuario.rol not in ['admin', 'supervisor']:
+            return jsonify({'error': 'Sin permisos para eliminar documentos'}), 403
+        
+        documento = Documento.query.get(documento_id)
+        if not documento:
+            return jsonify({'error': 'Documento no encontrado'}), 404
+        
+        # Eliminar archivo físico si existe
+        if os.path.exists(documento.ruta_archivo):
+            try:
+                os.remove(documento.ruta_archivo)
+                current_app.logger.info(f"Archivo físico eliminado: {documento.ruta_archivo}")
+            except Exception as delete_error:
+                current_app.logger.error(f"Error eliminando archivo físico: {delete_error}")
+        
+        # Eliminar registro de la base de datos
+        db.session.delete(documento)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Documento eliminado exitosamente',
+            'documento_id': documento_id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@documentos_bp.route('/verificar-integridad', methods=['POST'])
+@jwt_required()
+def verificar_integridad_documentos():
+    """Verificar la integridad de todos los documentos"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        
+        # Solo administradores pueden verificar integridad
+        if usuario.rol not in ['admin', 'supervisor']:
+            return jsonify({'error': 'Sin permisos para verificar integridad'}), 403
+        
+        documentos = Documento.query.all()
+        resultados = {
+            'total_documentos': len(documentos),
+            'archivos_faltantes': [],
+            'hashes_incorrectos': [],
+            'documentos_validos': 0
+        }
+        
+        for documento in documentos:
+            # Verificar que el archivo existe
+            if not os.path.exists(documento.ruta_archivo):
+                resultados['archivos_faltantes'].append({
+                    'id': documento.id,
+                    'nombre': documento.nombre_original,
+                    'ruta': documento.ruta_archivo
+                })
+                continue
+            
+            # Verificar hash
+            try:
+                with open(documento.ruta_archivo, 'rb') as f:
+                    hash_actual = hashlib.sha256(f.read()).hexdigest()
+                
+                if hash_actual != documento.hash_archivo:
+                    resultados['hashes_incorrectos'].append({
+                        'id': documento.id,
+                        'nombre': documento.nombre_original,
+                        'hash_esperado': documento.hash_archivo,
+                        'hash_actual': hash_actual
+                    })
+                else:
+                    resultados['documentos_validos'] += 1
+                    
+            except Exception as hash_error:
+                resultados['hashes_incorrectos'].append({
+                    'id': documento.id,
+                    'nombre': documento.nombre_original,
+                    'error': str(hash_error)
+                })
+        
+        return jsonify(resultados)
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # ================================================================================================

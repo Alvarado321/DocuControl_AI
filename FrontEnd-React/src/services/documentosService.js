@@ -4,16 +4,77 @@ const documentosService = {
   // Subir documento
   subirDocumento: async (solicitudId, formData) => {
     try {
+      console.log(`Subiendo documento para solicitud ${solicitudId}...`);
+      
       const response = await api.post(`/api/documentos/subir/${solicitudId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 30000, // 30 segundos de timeout
       });
+      
+      console.log('Documento subido exitosamente:', response.data);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Error al subir documento:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Error al subir documento',
+      };
+    }
+  },
+
+  // Obtener documentos de una solicitud
+  obtenerDocumentosSolicitud: async (solicitudId) => {
+    try {
+      const response = await api.get(`/api/documentos/solicitud/${solicitudId}`);
       return { success: true, data: response.data };
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Error al subir documento',
+        error: error.response?.data?.error || 'Error al obtener documentos',
+      };
+    }
+  },
+
+  // Obtener información de un documento específico
+  obtenerDocumento: async (documentoId) => {
+    try {
+      const response = await api.get(`/api/documentos/${documentoId}`);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al obtener documento',
+      };
+    }
+  },
+
+  // Descargar documento
+  descargarDocumento: async (documentoId) => {
+    try {
+      const response = await api.get(`/api/documentos/descargar/${documentoId}`, {
+        responseType: 'blob', // Importante para archivos
+      });
+      
+      return { success: true, data: response.data, headers: response.headers };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al descargar documento',
+      };
+    }
+  },
+
+  // Verificar integridad de documentos (solo admin)
+  verificarIntegridad: async () => {
+    try {
+      const response = await api.post('/api/documentos/verificar-integridad');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al verificar integridad',
       };
     }
   },

@@ -39,9 +39,11 @@ def create_app(config_name=None):
     app.register_blueprint(solicitudes_bp, url_prefix='/api/solicitudes')
     app.register_blueprint(documentos_bp, url_prefix='/api/documentos')
     app.register_blueprint(ml_bp, url_prefix='/api/ml')
-    
-    # Importar modelos para que SQLAlchemy los reconozca
+      # Importar modelos para que SQLAlchemy los reconozca
     from app import models
+    
+    # Inicializar configuración de la aplicación
+    config[config_name].init_app(app)
     
     # Crear tablas si no existen (solo en desarrollo)
     with app.app_context():
