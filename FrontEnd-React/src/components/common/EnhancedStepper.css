@@ -1,0 +1,124 @@
+/* Estilos adicionales para el stepper mejorado */
+
+.stepper-container {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.step-circle {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.step-circle:hover {
+  transform: translateY(-2px);
+}
+
+.step-circle.completed {
+  animation: completedPulse 0.6s ease-in-out;
+}
+
+.step-circle.active {
+  animation: activePulse 2s infinite;
+}
+
+@keyframes completedPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes activePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+
+.progress-line {
+  transition: all 0.8s ease-in-out;
+  background: linear-gradient(90deg, #22c55e 0%, #3b82f6 100%);
+}
+
+.progress-line.incomplete {
+  background: #e5e7eb;
+}
+
+.step-number {
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar-gradient {
+  background: linear-gradient(90deg, 
+    #3b82f6 0%, 
+    #6366f1 25%, 
+    #8b5cf6 50%, 
+    #a855f7 75%, 
+    #22c55e 100%
+  );
+  background-size: 200% 100%;
+  animation: gradientShift 3s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .stepper-container {
+    padding: 16px;
+  }
+  
+  .step-circle {
+    height: 40px;
+    width: 40px;
+  }
+  
+  .step-title {
+    font-size: 0.75rem;
+  }
+  
+  .step-description {
+    display: none;
+  }
+}
+
+.step-tooltip {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+.step-circle:hover .step-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-8px);
+}

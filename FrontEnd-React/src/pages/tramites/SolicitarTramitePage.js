@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import '../../components/common/EnhancedStepper.css';
 import {
   ArrowLeftIcon,
   ExclamationTriangleIcon,
@@ -25,7 +26,7 @@ const SolicitarTramitePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const { user } = useAuth(); const [formData, setFormData] = useState({
+  const { user } = useAuth();const [formData, setFormData] = useState({
     // Datos personales
     nombre_completo: user?.nombre_completo || '',
     documento: user?.documento || '',
@@ -38,7 +39,6 @@ const SolicitarTramitePage = () => {
   }); const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [documentosSubidos, setDocumentosSubidos] = useState({}); // Para almacenar archivos temporalmente
-  const [solicitudCreada, setSolicitudCreada] = useState(null); // Para almacenar la solicitud creada
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false); // Estado de envío
   // Obtener detalles del trámite
   const {
@@ -106,18 +106,9 @@ const SolicitarTramitePage = () => {
           newErrors.duracion_meses = 'La duración en meses es requerida y debe ser mayor a 0';
         }
       }
-    } if (currentStep === 3) {
-      // Paso 3: Validar que al menos los documentos obligatorios estén seleccionados
-      if (tramite.documentos_requeridos && tramite.documentos_requeridos.length > 0) {
-        const documentosFaltantes = tramite.documentos_requeridos.filter((documento, index) => {
-          const docId = `doc_${index}`;
-          return !documentosSubidos[docId];
-        });
-
-        if (documentosFaltantes.length > 0) {
-          newErrors.documentos = `Faltan documentos obligatorios: ${documentosFaltantes.join(', ')}`;
-        }
-      }
+    }    if (currentStep === 3) {
+      // Paso 3: Validar que al menos los documentos obligatorios estén seleccionados (opcional por ahora)
+      // Ya no requerimos que todos los documentos estén subidos para continuar al paso 4
     }
 
     // Paso 4 es solo revisión, no requiere validación adicional
@@ -170,39 +161,8 @@ const SolicitarTramitePage = () => {
         ...prev,
         documentos: undefined
       }));
-    }
-  };
+    }  };
 
-  // Validar documentos requeridos
-  const validateDocuments = () => {
-    if (!tramite?.documentos_requeridos || tramite.documentos_requeridos.length === 0) {
-      return true; // No hay documentos requeridos
-    }
-
-    const documentosObligatorios = tramite.documentos_requeridos.filter(doc => {
-      try {
-        const docObj = typeof doc === 'string' ? JSON.parse(doc) : doc;
-        return docObj.obligatorio;
-      } catch {
-        return false;
-      }
-    });
-
-    if (documentosObligatorios.length === 0) {
-      return true; // No hay documentos obligatorios
-    }
-
-    // Verificar que todos los documentos obligatorios estén seleccionados
-    return documentosObligatorios.every(doc => {
-      try {
-        const docObj = typeof doc === 'string' ? JSON.parse(doc) : doc;
-        const docId = docObj.id || docObj.nombre;
-        return documentosSubidos[docId] && documentosSubidos[docId].file;
-      } catch {
-        return false;
-      }
-    });
-  };
   const handleEnviarSolicitud = async () => {
     setEnviandoSolicitud(true);
 
@@ -219,9 +179,7 @@ const SolicitarTramitePage = () => {
           email: formData.email,
           direccion: formData.direccion
         }
-      };
-
-      showNotification('Creando solicitud...', 'info');
+      };      showNotification('Creando solicitud...', 'info');
       const solicitudResult = await solicitudesService.crearSolicitud(solicitudData);
 
       if (!solicitudResult.success) {
@@ -229,7 +187,6 @@ const SolicitarTramitePage = () => {
       }
 
       const solicitudCreada = solicitudResult.data.solicitud || solicitudResult.data;
-      setSolicitudCreada(solicitudCreada);
 
       // 2. Subir documentos si hay alguno seleccionado
       const documentosKeys = Object.keys(documentosSubidos);
@@ -251,26 +208,25 @@ const SolicitarTramitePage = () => {
             }
           }
         }
-      }
-
-      showNotification('Solicitud creada exitosamente', 'success');
-      setCurrentStep(4); // Avanzar al paso final
+      }      showNotification('Solicitud creada exitosamente', 'success');
+      
+      // Navegar al dashboard después de crear la solicitud
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000); // Esperar 2 segundos para que el usuario vea el mensaje
 
     } catch (error) {
       showNotification(error.message || 'Error al procesar la solicitud', 'error');
     } finally {
       setEnviandoSolicitud(false);
     }
-  }; const handleNext = async () => {
+  };  const handleNext = async () => {
     const isValid = validateForm();
 
     if (isValid) {
-      // Navegación normal entre pasos 1-3
-      if (currentStep < 3) {
+      // Navegación normal entre pasos 1-4
+      if (currentStep < 4) {
         setCurrentStep(prev => prev + 1);
-      } else if (currentStep === 3) {
-        // En el paso 3, crear solicitud y subir documentos
-        await handleEnviarSolicitud();
       }
     } else {
       showNotification('Por favor completa todos los campos requeridos', 'error');
@@ -606,9 +562,8 @@ const SolicitarTramitePage = () => {
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 Documentos Requeridos
-              </h3>
-              <p className="text-sm text-gray-600 mb-6">
-                Selecciona los documentos necesarios para tu trámite. Una vez que confirmes, se creará tu solicitud y se subirán los documentos automáticamente.
+              </h3>              <p className="text-sm text-gray-600 mb-6">
+                Adjunta los documentos necesarios para tu trámite. Los documentos son opcionales en este paso, podrás subirlos después si prefieres.
               </p>
 
               {tramite.documentos_requeridos && tramite.documentos_requeridos.length > 0 ? (
@@ -627,10 +582,9 @@ const SolicitarTramitePage = () => {
                     return (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
-                          <h5 className="font-medium text-gray-900">{documentoObj.nombre}</h5>
-                          {documentoObj.obligatorio && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                              Obligatorio
+                          <h5 className="font-medium text-gray-900">{documentoObj.nombre}</h5>                          {documentoObj.obligatorio && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Requerido
                             </span>
                           )}
                         </div>
@@ -665,92 +619,215 @@ const SolicitarTramitePage = () => {
               {/* Información adicional */}
               <div className="bg-blue-50 rounded-lg p-4 mt-6">
                 <div className="flex">
-                  <InformationCircleIcon className="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" />
-                  <div className="text-sm text-blue-700">
-                    <p className="font-medium mb-1">Al confirmar:</p>
+                  <InformationCircleIcon className="h-5 w-5 text-blue-400 mr-2 flex-shrink-0" />                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-1">Información importante:</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Se creará tu solicitud de trámite</li>
-                      <li>• Los documentos seleccionados se subirán automáticamente</li>
-                      <li>• Recibirás un número de expediente único</li>
-                      <li>• Podrás hacer seguimiento desde "Mis Solicitudes"</li>
+                      <li>• Puedes continuar sin subir documentos y agregarlos después</li>
+                      <li>• Los documentos marcados como "Requeridos" son necesarios para procesar tu solicitud</li>
+                      <li>• Los archivos deben estar en formato PDF, JPG o PNG</li>
+                      <li>• Si no tienes algún documento, podrás subirlo desde "Mis Solicitudes"</li>
                     </ul>
                   </div>
-                </div>              </div>            </div>          </div>);
-
-      case 4:
+                </div>              </div>            </div>          </div>);      case 4:
         return (
           <div className="space-y-6">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                ¡Solicitud Creada Exitosamente!
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Confirmación de Solicitud
               </h3>
               <p className="text-sm text-gray-600 mb-6">
-                Tu solicitud ha sido procesada y se ha asignado el número de seguimiento
+                Revisa toda la información antes de crear tu solicitud. Una vez confirmada, se generará tu número de expediente.
               </p>
 
-              {solicitudCreada && (
-                <div className="bg-blue-50 rounded-lg p-6 mb-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Número de Solicitud:</span>
-                      <span className="text-sm font-bold text-blue-600">#{solicitudCreada.id}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Estado:</span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        En Proceso
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">Fecha de Creación:</span>
-                      <span className="text-sm text-gray-600">
-                        {new Date().toLocaleDateString('es-CO')}
-                      </span>
-                    </div>
-                    {tramite && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Tiempo Estimado:</span>
-                        <span className="text-sm text-gray-600">
-                          {tramite.tiempo_estimado_dias} días hábiles
-                        </span>
-                      </div>
+              {/* Resumen del trámite */}
+              <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                <h4 className="text-lg font-semibold text-blue-900 mb-4">Resumen del Trámite</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Nombre del trámite:</span>
+                    <p className="text-sm text-gray-900 font-semibold">{tramite.nombre}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Categoría:</span>
+                    <p className="text-sm text-gray-900 capitalize">{tramite.categoria}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Costo estimado:</span>
+                    <p className="text-sm text-gray-900 font-semibold">
+                      {tramite.costo > 0 ? formatCurrency(tramite.costo) : 'Gratuito'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Tiempo estimado:</span>
+                    <p className="text-sm text-gray-900">{tramite.tiempo_estimado_dias} días hábiles</p>
+                  </div>
+                </div>
+                
+                {/* Fecha estimada de finalización */}
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <span className="text-sm font-medium text-gray-700">Fecha estimada de finalización:</span>
+                  <p className="text-sm text-blue-900 font-semibold">
+                    {(() => {
+                      const today = new Date();
+                      const estimatedDate = new Date(today);
+                      estimatedDate.setDate(today.getDate() + tramite.tiempo_estimado_dias);
+                      return estimatedDate.toLocaleDateString('es-CO', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      });
+                    })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Información del solicitante */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Información del Solicitante</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Nombre completo:</span>
+                    <p className="text-sm text-gray-900">{formData.nombre_completo}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Documento:</span>
+                    <p className="text-sm text-gray-900">{formData.documento}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Teléfono:</span>
+                    <p className="text-sm text-gray-900">{formData.telefono}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-700">Email:</span>
+                    <p className="text-sm text-gray-900">{formData.email}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <span className="text-sm font-medium text-gray-700">Dirección:</span>
+                    <p className="text-sm text-gray-900">{formData.direccion}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos adicionales del trámite */}
+              {Object.keys(formData.datos_adicionales).length > 0 && (
+                <div className="bg-yellow-50 rounded-lg p-6 mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Datos Específicos del Trámite</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {tramite.categoria === 'licencias' && (
+                      <>
+                        {formData.datos_adicionales.direccion_obra && (
+                          <div className="md:col-span-2">
+                            <span className="text-sm font-medium text-gray-700">Dirección de la obra:</span>
+                            <p className="text-sm text-gray-900">{formData.datos_adicionales.direccion_obra}</p>
+                          </div>
+                        )}
+                        {formData.datos_adicionales.area_construccion && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Área de construcción:</span>
+                            <p className="text-sm text-gray-900">{formData.datos_adicionales.area_construccion} m²</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {tramite.categoria === 'certificados' && (
+                      <>
+                        {formData.datos_adicionales.cantidad && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Cantidad de certificados:</span>
+                            <p className="text-sm text-gray-900">{formData.datos_adicionales.cantidad}</p>
+                          </div>
+                        )}
+                        {formData.datos_adicionales.motivo && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Motivo:</span>
+                            <p className="text-sm text-gray-900 capitalize">{formData.datos_adicionales.motivo}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {tramite.categoria === 'permisos' && (
+                      <>
+                        {formData.datos_adicionales.duracion_meses && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Duración solicitada:</span>
+                            <p className="text-sm text-gray-900">{formData.datos_adicionales.duracion_meses} meses</p>
+                          </div>
+                        )}
+                        {formData.datos_adicionales.tipo_actividad && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">Tipo de actividad:</span>
+                            <p className="text-sm text-gray-900 capitalize">{formData.datos_adicionales.tipo_actividad}</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               )}
 
-              <div className="bg-green-50 rounded-lg p-4 mb-6">
+              {/* Documentos adjuntados */}
+              <div className="bg-green-50 rounded-lg p-6 mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Documentos Adjuntados</h4>
+                {Object.keys(documentosSubidos).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(documentosSubidos).map(([docId, fileData]) => (
+                      <div key={docId} className="flex items-center justify-between p-3 bg-white rounded border">
+                        <div className="flex items-center">
+                          <DocumentIcon className="h-5 w-5 text-green-600 mr-2" />
+                          <span className="text-sm font-medium text-gray-900">{fileData.name}</span>
+                        </div>
+                        <span className="text-xs text-green-600 font-medium">✓ Adjuntado</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <DocumentIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">No se han adjuntado documentos</p>
+                    <p className="text-xs text-gray-400 mt-1">Podrás subirlos después desde "Mis Solicitudes"</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Términos y condiciones */}
+              <div className="bg-red-50 rounded-lg p-6 mb-6">
                 <div className="flex items-start">
-                  <InformationCircleIcon className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-green-700">
-                    <p className="font-medium mb-1">¿Qué sigue ahora?</p>
+                  <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-red-700">
+                    <p className="font-medium mb-2">Importante antes de continuar:</p>
                     <ul className="space-y-1 text-xs">
-                      <li>• Recibirás notificaciones sobre el progreso de tu solicitud</li>
-                      <li>• Puedes consultar el estado en cualquier momento desde tu dashboard</li>
-                      <li>• Si requieres documentos adicionales, te contactaremos</li>
-                      <li>• El tiempo estimado puede variar según la complejidad del caso</li>
+                      <li>• Al crear la solicitud, se generará un número de expediente único</li>
+                      <li>• La información proporcionada debe ser veraz y completa</li>
+                      <li>• Podrás hacer seguimiento del estado desde tu dashboard</li>
+                      <li>• Si falta documentación, te contactaremos para completarla</li>
+                      <li>• Los tiempos de procesamiento pueden variar según la carga de trabajo</li>
                     </ul>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {/* Botón de confirmación */}
+              <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => navigate('/tramites')}
-                  className="inline-flex items-center px-4 py-2 border border-primary-300 rounded-md shadow-sm text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  onClick={handleEnviarSolicitud}
+                  disabled={enviandoSolicitud}
+                  className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Solicitar Otro Trámite
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/dashboard')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  Ir al Dashboard
+                  {enviandoSolicitud ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Creando Solicitud...
+                    </>
+                  ) : (
+                    <>
+                      <PaperAirplaneIcon className="h-5 w-5 mr-3" />
+                      Crear Solicitud
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -805,53 +882,143 @@ const SolicitarTramitePage = () => {
             Completa la información requerida para iniciar tu solicitud
           </p>
         </div>
-      </div>
-
-      {/* Progress indicator */}
+      </div>      {/* Progress indicator */}
       <Card>
-        <div className="px-6 py-4">          <nav aria-label="Progress">
-          <ol className="flex items-center">
-            {[1, 2, 3, 4].map((step, stepIdx) => (
-              <li
-                key={step}
-                className={`${stepIdx !== 3 ? 'pr-4 sm:pr-12' : ''} relative`}
-              >
-                <div className="flex items-center">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${currentStep >= step
-                      ? 'border-primary-600 bg-primary-600'
-                      : 'border-gray-300 bg-white'
-                      }`}
-                  >
-                    {currentStep > step ? (
-                      <CheckCircleIcon className="h-5 w-5 text-white" />
-                    ) : (
-                      <span
-                        className={`text-sm font-medium ${currentStep >= step ? 'text-white' : 'text-gray-500'
-                          }`}
-                      >
-                        {step}
-                      </span>
+        <div className="px-6 py-6">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Progreso de Solicitud</h2>            <p className="text-sm text-gray-600">
+              Paso {currentStep} de 4 - {
+                currentStep === 1 ? 'Completa tu información personal' :
+                currentStep === 2 ? 'Proporciona los detalles específicos del trámite' :
+                currentStep === 3 ? 'Adjunta los documentos requeridos' :
+                'Revisa toda la información y crea tu solicitud'
+              }
+            </p>
+          </div>
+          
+          <nav aria-label="Progress">
+            <ol className="flex items-center justify-between">
+              {[1, 2, 3, 4].map((step, stepIdx) => {                const stepConfig = {
+                  1: { 
+                    icon: InformationCircleIcon, 
+                    title: 'Información', 
+                    description: 'Datos personales',
+                    color: 'blue'
+                  },
+                  2: { 
+                    icon: DocumentIcon, 
+                    title: 'Detalles', 
+                    description: 'Info del trámite',
+                    color: 'indigo'
+                  },                  3: { 
+                    icon: DocumentIcon, 
+                    title: 'Documentos', 
+                    description: 'Archivos requeridos',
+                    color: 'purple'
+                  },
+                  4: { 
+                    icon: CheckCircleIcon, 
+                    title: 'Confirmación', 
+                    description: 'Revisar y crear solicitud',
+                    color: 'green'
+                  }
+                };
+                
+                const config = stepConfig[step];
+                const IconComponent = config.icon;                const isCompleted = currentStep > step;
+                const isActive = currentStep === step;
+                
+                return (
+                  <li key={step} className="relative flex-1">
+                    <div className="flex flex-col items-center group">                      {/* Círculo del paso */}                      <div className={`
+                        relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all duration-300 ease-in-out
+                        ${isCompleted 
+                          ? 'bg-green-600 border-green-600 shadow-lg transform scale-110' 
+                          : isActive 
+                            ? 'bg-white border-blue-600 shadow-lg ring-4 ring-blue-100' 
+                            : 'bg-gray-100 border-gray-300 hover:border-gray-400'
+                        }
+                      `}>
+                        {isCompleted ? (
+                          <CheckCircleIcon className="h-6 w-6 text-white" />
+                        ) : (
+                          <IconComponent className={`h-6 w-6 ${
+                            isActive ? 'text-blue-600' : 'text-gray-400'
+                          }`} />
+                        )}
+                        
+                        {/* Número del paso (pequeño, en esquina) */}
+                        <span className={`
+                          absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold
+                          ${isCompleted 
+                            ? 'bg-green-500 text-white' 
+                            : isActive 
+                              ? 'bg-blue-600 text-white' 
+                              : 'bg-gray-300 text-gray-600'
+                          }
+                        `}>
+                          {step}
+                        </span>
+                      </div>
+                      
+                      {/* Información del paso */}
+                      <div className="mt-3 text-center min-w-0 flex-1">
+                        <h3 className={`
+                          text-sm font-semibold transition-colors duration-200
+                          ${isCompleted 
+                            ? 'text-green-600' 
+                            : isActive 
+                              ? 'text-blue-600' 
+                              : 'text-gray-500'
+                          }
+                        `}>
+                          {config.title}
+                        </h3>
+                        <p className={`
+                          text-xs mt-1 transition-colors duration-200
+                          ${isActive 
+                            ? 'text-gray-700 font-medium' 
+                            : 'text-gray-500'
+                          }
+                        `}>
+                          {config.description}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Línea conectora */}
+                    {stepIdx !== 3 && (
+                      <div className="absolute top-6 left-1/2 w-full h-0.5 -z-0">
+                        <div className={`
+                          h-full transition-all duration-500 ease-in-out
+                          ${currentStep > step 
+                            ? 'bg-green-500' 
+                            : 'bg-gray-200'
+                          }
+                        `} />
+                      </div>
                     )}
-                  </div>
-                  <span
-                    className={`ml-3 text-sm font-medium ${currentStep >= step ? 'text-primary-600' : 'text-gray-500'
-                      }`}
-                  >                      {step === 1 && 'Información'}
-                    {step === 2 && 'Detalles'}
-                    {step === 3 && 'Documentos'}
-                    {step === 4 && 'Confirmación'}
-                  </span>
-                </div>
-                {stepIdx !== 3 && (
-                  <div className="absolute top-4 left-8 -ml-px h-0.5 w-full bg-gray-300" />
-                )}
-              </li>
-            ))}
-          </ol>
-        </nav>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+          
+          {/* Barra de progreso global */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+              <span>Progreso general</span>
+              <span>{Math.round((currentStep / 4) * 100)}% completado</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 via-purple-500 to-green-500 rounded-full transition-all duration-700 ease-in-out"
+                style={{ width: `${(currentStep / 4) * 100}%` }}
+              />
+            </div>
+          </div>
         </div>
-      </Card>      {/* Form content */}
+      </Card>{/* Form content */}
       <Card>
         <div>
           <div className="px-6 py-6">
@@ -879,34 +1046,14 @@ const SolicitarTramitePage = () => {
                 >
                   Cancelar
                 </Link>
-              )}
-
-              {currentStep < 3 ? (
+              )}              {currentStep < 4 ? (
                 <button
                   type="button"
                   onClick={handleNext}
                   className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
                 >
                   Siguiente
-                </button>) : currentStep === 3 ? (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={enviandoSolicitud || !validateDocuments()}
-                    className="inline-flex items-center px-6 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {enviandoSolicitud ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                        Crear Solicitud
-                      </>
-                    )}
-                  </button>
+                </button>
                 ) : null}
             </div>
           </div>
