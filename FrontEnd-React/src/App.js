@@ -22,6 +22,10 @@ import TramitesPage from './pages/tramites/TramitesPage';
 import TramiteDetailPage from './pages/tramites/TramiteDetailPage';
 import SolicitarTramitePage from './pages/tramites/SolicitarTramitePage';
 
+// Solicitudes Pages
+import SolicitudesPage from './pages/solicitudes/SolicitudesPage';
+import SolicitudDetailPage from './pages/solicitudes/SolicitudDetailPage';
+
 // Create a client for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,19 +85,25 @@ function App() {
                         </ProtectedRoute>
                       } 
                     />
-                    
-                    {/* Other placeholder routes */}
+                      {/* Solicitudes routes */}
                     <Route 
                       path="solicitudes" 
                       element={
                         <ProtectedRoute>
-                          <div className="p-6">
-                            <h1 className="text-2xl font-bold">Mis Solicitudes</h1>
-                            <p>Página en desarrollo...</p>
-                          </div>
+                          <SolicitudesPage />
                         </ProtectedRoute>
                       } 
                     />
+                    <Route 
+                      path="solicitudes/:id" 
+                      element={
+                        <ProtectedRoute>
+                          <SolicitudDetailPage />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    
+                    {/* Other placeholder routes */}
                     <Route 
                       path="documentos" 
                       element={
