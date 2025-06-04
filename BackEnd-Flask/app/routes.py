@@ -724,3 +724,17 @@ def comparacion_prioridad():
         return jsonify({'data': data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Elimina el decorador que causa error y usa una bandera global para cargar solo una vez
+modelo_ml_cargado = False
+
+@ml_bp.before_app_request
+def cargar_modelo_ml_si_es_necesario():
+    global modelo_ml_cargado
+    if not modelo_ml_cargado:
+        try:
+            solicitud_processor.load_priority_model()
+            print('Modelo y label encoders de prioridad ML cargados correctamente.')
+            modelo_ml_cargado = True
+        except Exception as e:
+            print(f'No se pudo cargar el modelo ML al iniciar: {e}')

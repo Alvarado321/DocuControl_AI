@@ -164,7 +164,9 @@ class SolicitudMLProcessor:
         return results
 
     def train_priority_model_from_db(self):
-        """Entrenar modelo ML usando datos históricos de la base de datos y guardar el modelo"""
+        """Entrenar modelo ML usando datos históricos de la base de datos y guardar el modelo versionado en model_versions"""
+        import os
+        from datetime import datetime
         # Obtener solicitudes con prioridad real y datos completos
         solicitudes = (
             db.session.query(Solicitud)
@@ -209,10 +211,18 @@ class SolicitudMLProcessor:
         model.fit(X, y)
         self.priority_model = model
         self.is_trained = True
-        # Guardar modelo y encoders
-        joblib.dump(model, 'priority_model.joblib')
+        # Guardar modelo y encoders versionados
+        version_dir = os.path.join(os.path.dirname(__file__), '..', 'model_versions')
+        os.makedirs(version_dir, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        model_path = os.path.join(version_dir, f'priority_model_{timestamp}.joblib')
+        encoders_path = os.path.join(version_dir, f'priority_label_encoders_{timestamp}.joblib')
+        joblib.dump({'model': model, 'encoders': self.label_encoders}, model_path)
+        joblib.dump(self.label_encoders, encoders_path)
+        # También guardar/actualizar el modelo actual para carga rápida
+        joblib.dump({'model': model, 'encoders': self.label_encoders}, 'priority_model.joblib')
         joblib.dump(self.label_encoders, 'priority_label_encoders.joblib')
-        return {'status': 'ok', 'message': 'Modelo entrenado y guardado', 'n_samples': len(y)}
+        return {'status': 'ok', 'message': f'Modelo entrenado y guardado en {model_path}', 'n_samples': len(y)}
 
     def extract_training_data(self):
         """Extraer datos de la base de datos para entrenamiento ML (joins explícitos)"""
@@ -259,8 +269,17 @@ class SolicitudMLProcessor:
         joblib.dump({'model': model, 'encoders': self.label_encoders}, save_path)
         return True, f'Modelo entrenado y guardado en {save_path}'
 
-    def load_priority_model(self, path='priority_model.joblib'):
-        """Cargar modelo ML de prioridad desde disco"""
+    def load_priority_model(self, path=None):
+        """Cargar el modelo ML de prioridad más reciente desde model_versions o el path dado"""
+        import os
+        import glob
+        if path is None:
+            version_dir = os.path.join(os.path.dirname(__file__), '..', 'model_versions')
+            model_files = sorted(glob.glob(os.path.join(version_dir, 'priority_model_*.joblib')))
+            if model_files:
+                path = model_files[-1]  # El más reciente
+            else:
+                path = 'priority_model.joblib'  # Fallback
         obj = joblib.load(path)
         self.priority_model = obj['model']
         self.label_encoders = obj['encoders']
