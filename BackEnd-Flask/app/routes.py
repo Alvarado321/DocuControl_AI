@@ -720,6 +720,7 @@ def comparacion_prioridad():
         if usuario.rol not in ['administrativo', 'supervisor', 'admin']:
             return jsonify({'error': 'Sin permisos para ver comparación ML'}), 403
         data = solicitud_processor.get_priority_comparison_data()
+        print('DEBUG comparacion_prioridad data:', data)  # <-- Log para depuración
         return jsonify({'data': data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
