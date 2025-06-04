@@ -116,13 +116,18 @@ function App() {
                       } 
                     />
                     <Route 
+                      path="ml/analisis" 
+                      element={
+                        <ProtectedRoute>
+                          {React.createElement(require('./pages/analisis/AnalisisMLPage').default)}
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
                       path="ml" 
                       element={
                         <ProtectedRoute>
-                          <div className="p-6">
-                            <h1 className="text-2xl font-bold">Análisis ML</h1>
-                            <p>Página en desarrollo...</p>
-                          </div>
+                          <Navigate to="/ml/analisis" replace />
                         </ProtectedRoute>
                       } 
                     />

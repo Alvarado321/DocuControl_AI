@@ -3,7 +3,6 @@ import useAuth from '../../hooks/useAuth';
 import useML from '../../hooks/useML';
 import Card from '../../components/common/Card';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import MLPriorityComparison from '../../components/dashboard/MLPriorityComparison';
 import { 
   ClipboardDocumentListIcon, 
   DocumentTextIcon, 
@@ -203,7 +202,10 @@ const DashboardPage = () => {
                 </div>
 
                 <div className="pt-3 border-t border-gray-200">
-                  <button className="w-full text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  <button
+                    className="w-full text-sm text-primary-600 hover:text-primary-700 font-medium"
+                    onClick={() => window.location.href = '/ml/analisis'}
+                  >
                     Ver análisis completo →
                   </button>
                 </div>
@@ -211,11 +213,6 @@ const DashboardPage = () => {
             )}
           </Card>
         </div>
-      </div>
-
-      {/* ML Insights - Priority Comparison */}
-      <div className="my-8">
-        <MLPriorityComparison />
       </div>
 
       {/* Quick Actions */}
