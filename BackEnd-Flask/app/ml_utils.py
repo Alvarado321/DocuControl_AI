@@ -1,9 +1,12 @@
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import LabelEncoder
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+from sklearn.ensemble import RandomForestClassifier # type: ignore
+from sklearn.preprocessing import LabelEncoder # type: ignore
 from datetime import datetime, timedelta
 import json
+import joblib # type: ignore
+from app import db
+from app.models import Solicitud, Tramite, Usuario, Documento
 
 class SolicitudMLProcessor:
     """Procesador de Machine Learning para solicitudes"""
@@ -14,25 +17,26 @@ class SolicitudMLProcessor:
         self.is_trained = False
     
     def prepare_features(self, solicitudes_data):
-        """Preparar características para el modelo ML"""
+        """Preparar características para el modelo ML (acepta dict plano o anidado)"""
         features = []
-        
         for solicitud in solicitudes_data:
-            # Características básicas
-            dias_desde_solicitud = (datetime.now() - solicitud['fecha_solicitud']).days
-            dias_hasta_limite = (solicitud['fecha_limite'] - datetime.now()).days if solicitud['fecha_limite'] else 30
-            
-            # Características del trámite
-            categoria_tramite = solicitud['tramite']['categoria']
-            costo_tramite = float(solicitud['tramite']['costo'])
-            tiempo_estimado = solicitud['tramite']['tiempo_estimado_dias']
-            
-            # Características del usuario
-            rol_usuario = solicitud['usuario']['rol']
-            
-            # Conteo de documentos
-            num_documentos = len(solicitud.get('documentos', []))
-            
+            # Soporta tanto dict plano como dict anidado
+            if 'tramite' in solicitud and 'usuario' in solicitud:
+                categoria_tramite = solicitud['tramite']['categoria']
+                costo_tramite = float(solicitud['tramite']['costo'])
+                tiempo_estimado = solicitud['tramite']['tiempo_estimado_dias']
+                rol_usuario = solicitud['usuario']['rol']
+                num_documentos = len(solicitud.get('documentos', []))
+            else:
+                categoria_tramite = solicitud.get('categoria_tramite')
+                costo_tramite = float(solicitud.get('costo_tramite', 0))
+                tiempo_estimado = solicitud.get('tiempo_estimado_dias', 0)
+                rol_usuario = solicitud.get('rol_usuario')
+                num_documentos = solicitud.get('num_documentos', 0)
+
+            dias_desde_solicitud = (datetime.now() - solicitud['fecha_solicitud']).days if solicitud.get('fecha_solicitud') else 0
+            dias_hasta_limite = (solicitud['fecha_limite'] - datetime.now()).days if solicitud.get('fecha_limite') else 30
+
             features.append({
                 'dias_desde_solicitud': dias_desde_solicitud,
                 'dias_hasta_limite': dias_hasta_limite,
@@ -43,7 +47,6 @@ class SolicitudMLProcessor:
                 'num_documentos': num_documentos,
                 'urgencia_score': max(0, 10 - dias_hasta_limite) if dias_hasta_limite > 0 else 10
             })
-        
         return pd.DataFrame(features)
     
     def encode_categorical_features(self, df):
@@ -159,6 +162,150 @@ class SolicitudMLProcessor:
             })
         
         return results
+
+    def train_priority_model_from_db(self):
+        """Entrenar modelo ML usando datos históricos de la base de datos y guardar el modelo"""
+        # Obtener solicitudes con prioridad real y datos completos
+        solicitudes = (
+            db.session.query(Solicitud)
+            .filter(Solicitud.prioridad.isnot(None))
+            .all()
+        )
+        if not solicitudes:
+            return {'status': 'error', 'message': 'No hay datos suficientes para entrenar.'}
+
+        # Preparar datos para entrenamiento
+        data = []
+        for s in solicitudes:
+            tramite = s.tramite
+            usuario = s.usuario
+            documentos = s.documentos
+            data.append({
+                'id': s.id,
+                'fecha_solicitud': s.fecha_solicitud,
+                'fecha_limite': s.fecha_limite,
+                'tramite': {
+                    'categoria': tramite.categoria,
+                    'costo': float(tramite.costo),
+                    'tiempo_estimado_dias': tramite.tiempo_estimado_dias
+                },
+                'usuario': {
+                    'rol': usuario.rol
+                },
+                'documentos': documentos,
+                'prioridad': s.prioridad
+            })
+        df = self.prepare_features(data)
+        df = self.encode_categorical_features(df)
+        X = df[
+            [
+                'dias_desde_solicitud', 'dias_hasta_limite', 'costo_tramite', 'tiempo_estimado',
+                'num_documentos', 'urgencia_score', 'categoria_tramite_encoded', 'rol_usuario_encoded'
+            ]
+        ]
+        y = [d['prioridad'] for d in data]
+        # Entrenar modelo
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X, y)
+        self.priority_model = model
+        self.is_trained = True
+        # Guardar modelo y encoders
+        joblib.dump(model, 'priority_model.joblib')
+        joblib.dump(self.label_encoders, 'priority_label_encoders.joblib')
+        return {'status': 'ok', 'message': 'Modelo entrenado y guardado', 'n_samples': len(y)}
+
+    def extract_training_data(self):
+        """Extraer datos de la base de datos para entrenamiento ML (joins explícitos)"""
+        solicitudes = db.session.query(Solicitud, Tramite, Usuario) \
+            .join(Tramite, Solicitud.tramite_id == Tramite.id) \
+            .join(Usuario, Solicitud.usuario_id == Usuario.id) \
+            .all()
+        data = []
+        for s, tramite, usuario in solicitudes:
+            documentos = s.documentos
+            data.append({
+                'fecha_solicitud': s.fecha_solicitud,
+                'fecha_limite': s.fecha_limite,
+                'categoria_tramite': tramite.categoria,
+                'costo_tramite': float(tramite.costo),
+                'tiempo_estimado_dias': tramite.tiempo_estimado_dias,
+                'rol_usuario': usuario.rol,
+                'num_documentos': len(documentos),
+                'prioridad': s.prioridad
+            })
+        return data
+
+    def train_priority_model(self, save_path='priority_model.joblib'):
+        """Entrenar modelo ML de prioridad y guardar a disco"""
+        data = self.extract_training_data()
+        if not data:
+            return False, 'No hay datos para entrenar.'
+        df = pd.DataFrame(data)
+        X = df.drop('prioridad', axis=1)
+        y = df['prioridad']
+        # Codificar categóricos
+        for col in ['categoria_tramite', 'rol_usuario']:
+            le = LabelEncoder()
+            X[col] = le.fit_transform(X[col])
+            self.label_encoders[col] = le
+        # Rellenar nulos
+        X = X.fillna(0)
+        # Entrenar modelo
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X, y)
+        self.priority_model = model
+        self.is_trained = True
+        # Guardar modelo y encoders
+        joblib.dump({'model': model, 'encoders': self.label_encoders}, save_path)
+        return True, f'Modelo entrenado y guardado en {save_path}'
+
+    def load_priority_model(self, path='priority_model.joblib'):
+        """Cargar modelo ML de prioridad desde disco"""
+        obj = joblib.load(path)
+        self.priority_model = obj['model']
+        self.label_encoders = obj['encoders']
+        self.is_trained = True
+
+    def predict_priority(self, solicitudes_data):
+        """Predecir prioridad ML para nuevas solicitudes"""
+        if not self.is_trained:
+            self.load_priority_model()
+        features_df = self.prepare_features(solicitudes_data)
+        # Codificar categóricos
+        for col in ['categoria_tramite', 'rol_usuario']:
+            le = self.label_encoders.get(col)
+            if le:
+                features_df[col] = le.transform(features_df[col].fillna(le.classes_[0]))
+            else:
+                features_df[col] = 0
+        X = features_df[['dias_desde_solicitud', 'dias_hasta_limite', 'categoria_tramite', 'costo_tramite', 'tiempo_estimado', 'rol_usuario', 'num_documentos', 'urgencia_score']]
+        # Si hay columnas categóricas codificadas, usarlas
+        for col in ['categoria_tramite', 'rol_usuario']:
+            if col in features_df:
+                X[col] = features_df[col]
+        preds = self.priority_model.predict(X)
+        return preds
+
+    def get_priority_comparison_data(self):
+        """Obtener datos para comparar prioridad real vs. predicha (pipeline igual que entrenamiento)"""
+        data = self.extract_training_data()
+        if not data:
+            return []
+        features_df = self.prepare_features(data)
+        features_df = self.encode_categorical_features(features_df)
+        X = features_df[
+            [
+                'dias_desde_solicitud', 'dias_hasta_limite', 'costo_tramite', 'tiempo_estimado',
+                'num_documentos', 'urgencia_score', 'categoria_tramite_encoded', 'rol_usuario_encoded'
+            ]
+        ]
+        y_real = [d['prioridad'] for d in data]
+        if not self.is_trained:
+            self.load_priority_model()
+        y_pred = self.priority_model.predict(X)
+        features_df['prioridad'] = y_real
+        features_df['prioridad_predicha'] = y_pred
+        return features_df[['prioridad', 'prioridad_predicha']].to_dict(orient='records')
 
 class DocumentMLProcessor:
     """Procesador de ML para análisis de documentos"""

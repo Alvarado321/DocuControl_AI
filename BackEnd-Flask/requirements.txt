@@ -24,5 +24,7 @@ pip install scipy
 pip install joblib
 pip install threadpoolctl
 
+pip install joblib
+
 # Para REACT usa:
 # npm install --legacy-peer-deps

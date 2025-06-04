@@ -70,6 +70,35 @@ const useML = () => {
     return mlService.getConfidenceLevel(score);
   }, []);
 
+  // Entrenar modelo de prioridad ML
+  const entrenarModeloPrioridad = useCallback(async () => {
+    try {
+      setProcessing(true);
+      setError(null);
+      const result = await mlService.entrenarModeloPrioridad();
+      return result;
+    } catch (err) {
+      const errorMsg = err.message || 'Error al entrenar el modelo de prioridad';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      setProcessing(false);
+    }
+  }, []);
+
+  // Obtener comparación prioridad real vs predicha
+  const getComparacionPrioridad = useCallback(async () => {
+    try {
+      setError(null);
+      const result = await mlService.getComparacionPrioridad();
+      return result;
+    } catch (err) {
+      const errorMsg = err.message || 'Error al obtener comparación de prioridad';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }, []);
+
   return {
     processing,
     statistics,
@@ -81,6 +110,8 @@ const useML = () => {
     getPriorityBadge,
     formatMLScore,
     getConfidenceLevel,
+    entrenarModeloPrioridad,
+    getComparacionPrioridad,
   };
 };
 

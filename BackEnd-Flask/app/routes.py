@@ -1,12 +1,13 @@
-from flask import Blueprint, request, jsonify, current_app, send_file
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask import Blueprint, request, jsonify, current_app, send_file # type: ignore
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token # type: ignore
 from app import db
 from app.models import Usuario, Tramite, Solicitud, Documento, HistorialEstado
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename # type: ignore
 import os
 from datetime import datetime, timedelta
 import hashlib
 import json
+from app.ml_utils import solicitud_processor
 
 # Blueprints para organizar las rutas
 main_bp = Blueprint('main', __name__)
@@ -235,7 +236,13 @@ def crear_solicitud():
         
         db.session.add(historial)
         db.session.commit()
-        
+
+        # Entrenar/actualizar modelo ML automáticamente
+        try:
+            solicitud_processor.train_priority_model_from_db()
+        except Exception as ml_error:
+            current_app.logger.warning(f"No se pudo actualizar el modelo ML: {ml_error}")
+
         return jsonify({
             'message': 'Solicitud creada exitosamente',
             'solicitud': solicitud.to_dict()
@@ -686,5 +693,33 @@ def get_estadisticas_ml():
             'distribucion_prioridades': dict(prioridades)
         })
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@ml_bp.route('/entrenar-modelo-prioridad', methods=['POST'])
+@jwt_required()
+def entrenar_modelo_prioridad():
+    """Entrenar el modelo ML de prioridad con datos históricos"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        if usuario.rol not in ['administrativo', 'supervisor', 'admin']:
+            return jsonify({'error': 'Sin permisos para entrenar el modelo ML'}), 403
+        resultado = solicitud_processor.train_priority_model_from_db()
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@ml_bp.route('/comparacion-prioridad', methods=['GET'])
+@jwt_required()
+def comparacion_prioridad():
+    """Obtener datos de comparación entre prioridad real y predicha para gráficos"""
+    try:
+        user_id = int(get_jwt_identity())
+        usuario = Usuario.query.get(user_id)
+        if usuario.rol not in ['administrativo', 'supervisor', 'admin']:
+            return jsonify({'error': 'Sin permisos para ver comparación ML'}), 403
+        data = solicitud_processor.get_priority_comparison_data()
+        return jsonify({'data': data})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

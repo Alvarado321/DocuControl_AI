@@ -3,6 +3,7 @@ import useAuth from '../../hooks/useAuth';
 import useML from '../../hooks/useML';
 import Card from '../../components/common/Card';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import MLPriorityComparison from '../../components/dashboard/MLPriorityComparison';
 import { 
   ClipboardDocumentListIcon, 
   DocumentTextIcon, 
@@ -210,6 +211,11 @@ const DashboardPage = () => {
             )}
           </Card>
         </div>
+      </div>
+
+      {/* ML Insights - Priority Comparison */}
+      <div className="my-8">
+        <MLPriorityComparison />
       </div>
 
       {/* Quick Actions */}

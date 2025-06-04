@@ -84,6 +84,32 @@ const mlService = {
       ],
     };
   },
+
+  // Entrenar modelo de prioridad ML
+  entrenarModeloPrioridad: async () => {
+    try {
+      const response = await api.post('/api/ml/entrenar-modelo-prioridad');
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al entrenar el modelo de prioridad ML',
+      };
+    }
+  },
+
+  // Obtener comparación prioridad real vs predicha
+  getComparacionPrioridad: async () => {
+    try {
+      const response = await api.get('/api/ml/comparacion-prioridad');
+      return { success: true, data: response.data.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Error al obtener comparación de prioridad',
+      };
+    }
+  },
 };
 
 export default mlService;
